@@ -22,10 +22,7 @@ public sealed class WorkspaceStore
     private readonly string _filePath;
 
     public WorkspaceStore()
-        : this(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Claudium",
-            "workspaces.json"))
+        : this(UserDataPaths.ResolveFile("workspaces.json"))
     {
     }
 

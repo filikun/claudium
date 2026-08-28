@@ -20,10 +20,7 @@ public sealed class AppSettingsStore
     private readonly string _filePath;
 
     public AppSettingsStore()
-        : this(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Claudium",
-            "appsettings.json"))
+        : this(UserDataPaths.ResolveFile("appsettings.json"))
     {
     }
 
