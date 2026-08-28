@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Application
+    x:Class="Claudium.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Claudium"
+    RequestedTheme="Dark">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+                <!-- Other merged dictionaries here -->
+            </ResourceDictionary.MergedDictionaries>
+
+            <!--
+                Shared theme brushes — the selected AppTheme's colors, mutated in place
+                (MainPage.ApplyAppTheme) rather than replaced, so every element bound via
+                StaticResource repaints automatically when the user switches theme. Kept
+                to background/accent roles; text and status colors (favorite star,
+                destructive red) stay constant across themes — see AppTheme.cs.
+            -->
+            <SolidColorBrush x:Key="AppPageBrush" Color="#272C44" />
+            <SolidColorBrush x:Key="AppSurfaceBrush" Color="#1D2238" />
+            <SolidColorBrush x:Key="AppSurfaceOverlayBrush" Color="#CC1D2238" />
+            <SolidColorBrush x:Key="AppAccentBrush" Color="#3D8BFD" />
+            <SolidColorBrush x:Key="AppNeutralButtonBrush" Color="#39405E" />
+
+            <SolidColorBrush x:Key="AppTextPrimaryBrush" Color="#F7F8FC" />
+            <SolidColorBrush x:Key="AppTextSecondaryBrush" Color="#9099BC" />
+            <SolidColorBrush x:Key="AppTextTertiaryBrush" Color="#BEC4D6" />
+            <SolidColorBrush x:Key="AppFavoriteBrush" Color="#F5C451" />
+            <SolidColorBrush x:Key="AppDangerBrush" Color="#E38C8C" />
+            <SolidColorBrush x:Key="AppSuccessBrush" Color="#6FCF97" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

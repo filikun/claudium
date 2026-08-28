@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Claudium</title>
+  <link rel="stylesheet" href="./xterm/xterm.css" />
+  <style>
+    :root {
+      --background: #272c44;
+      --foreground: #e8ecf5;
+      --cursor: #58d0aa;
+      --selection: rgba(109, 125, 189, 0.32);
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      background: var(--background);
+      color: var(--foreground);
+      overflow: hidden;
+      font-family: Consolas, "Cascadia Mono", monospace;
+    }
+
+    #terminal-root {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    .terminal-pane {
+      position: absolute;
+      inset: 0;
+      padding: 16px 16px 26px 16px;
+      box-sizing: border-box;
+      background: var(--background);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .xterm {
+      height: 100%;
+      background: var(--background);
+    }
+
+    .xterm-screen,
+    .xterm-viewport,
+    .xterm-rows,
+    .xterm-scroll-area,
+    .xterm-decoration-container,
+    .xterm-helpers,
+    .xterm-helper-textarea,
+    .composition-view {
+      background: var(--background) !important;
+    }
+
+    .xterm-screen canvas {
+      background: var(--background) !important;
+    }
+
+    /*
+      The scrollbar track/thumb reads as visual "weight" even at equal pixel width to
+      plain padding, which is what made a right-side gap sized to match the left still
+      look uneven. Keeping it fully transparent until hover/scroll (like most modern
+      apps' overlay scrollbars) means the padding — now equal on both sides — is what
+      the eye actually measures.
+    */
+    .xterm-viewport::-webkit-scrollbar {
+      width: 10px;
+    }
+
+    .xterm-viewport::-webkit-scrollbar-thumb {
+      background: transparent;
+      border-radius: 999px;
+    }
+
+    .xterm-viewport:hover::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.18);
+    }
+  </style>
+</head>
+<body>
+  <div id="terminal-root"></div>
+  <script src="./xterm/xterm.js"></script>
+  <script>
+    class FitAddon {
+      activate(term) {
+        this._terminal = term;
+      }
+
+      dispose() {}
+
+      fit() {
+        const dims = this.proposeDimensions();
+        if (!dims || !this._terminal || isNaN(dims.cols) || isNaN(dims.rows)) {
+          return undefined;
+        }
+
+        this._terminal.resize(dims.cols, dims.rows);
+        return dims;
+      }
+
+      proposeDimensions() {
+        if (!this._terminal || !this._terminal.element || !this._terminal.element.parentElement) {
+          return undefined;
+        }
+
+        const dims = this._terminal._core && this._terminal._core._renderService
+          ? this._terminal._core._renderService.dimensions
+          : this._terminal.dimensions;
+
+        if (!dims || !dims.css || !dims.css.cell || dims.css.cell.width === 0 || dims.css.cell.height === 0) {
+          return undefined;
+        }
+
+        // Padding lives on the pane (.terminal-pane, this._terminal.element's parent) —
+        // .xterm itself (this._terminal.element) never has padding set, so reading it
+        // from there always yielded 0 and silently ignored the pane's real padding.
+        const parentStyle = window.getComputedStyle(this._terminal.element.parentElement);
+        const parentHeight = Math.max(0, parseInt(parentStyle.getPropertyValue('height'), 10) || 0);
+        const parentWidth = Math.max(0, parseInt(parentStyle.getPropertyValue('width'), 10) || 0);
+
+        const paddingTop = parseInt(parentStyle.getPropertyValue('padding-top'), 10) || 0;
+        const paddingBottom = parseInt(parentStyle.getPropertyValue('padding-bottom'), 10) || 0;
+        const paddingLeft = parseInt(parentStyle.getPropertyValue('padding-left'), 10) || 0;
+        const paddingRight = parseInt(parentStyle.getPropertyValue('padding-right'), 10) || 0;
+        // Small fixed reserves on top of the real padding above: ~10px on the right for
+        // xterm's own scrollbar gutter (it lives inside the padded content box, not
+        // accounted for by CSS padding alone), and a few px everywhere as rounding safety
+        // margin so text/cursor never touches the pane edge.
+        const bottomReserve = 4;
+        const availableHeight = parentHeight - paddingTop - paddingBottom - bottomReserve;
+        const availableWidth = parentWidth - paddingLeft - paddingRight - 10;
+
+        return {
+          cols: Math.max(2, Math.floor(availableWidth / dims.css.cell.width)),
+          rows: Math.max(1, Math.floor(availableHeight / dims.css.cell.height))
+        };
+      }
+    }
+
+    const terminalRoot = document.getElementById('terminal-root');
+    const sessions = new Map();
+    let activeSessionId = null;
+
+    function decodeBase64Utf8(value) {
+      const binary = atob(value);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return new TextDecoder().decode(bytes);
+    }
+
+    function encodeBase64Utf8(value) {
+      const bytes = new TextEncoder().encode(value);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i += 1) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary);
+    }
+
+    function arrayBufferToBase64(buffer) {
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      const chunkSize = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+      }
+      return btoa(binary);
+    }
+
+    function send(message) {
+      window.chrome.webview.postMessage(message);
+    }
+
+    // Claude CLI has no way to receive image bytes directly, but its Read tool can load
+    // an image from a local path — so a dropped/pasted image is handed to the host as
+    // raw bytes, written to a temp file there, and the resulting path is typed into the
+    // terminal like a normal paste, ready for the user to reference in their prompt.
+    function sendFileAttachment(sessionId, fileName, buffer) {
+      const base64 = arrayBufferToBase64(buffer);
+      send('attachfile:' + sessionId + ':' + encodeBase64Utf8(fileName || 'attachment') + ':' + base64);
+    }
+
+    /** Ctrl+V: an image on the clipboard is attached as a file; otherwise falls back to plain text paste. */
+    function handlePaste(sessionId) {
+      const pasteText = () => {
+        navigator.clipboard.readText().then((text) => {
+          if (text && sessionId === activeSessionId) {
+            send('input:' + sessionId + ':' + encodeBase64Utf8(text));
+          }
+        });
+      };
+
+      if (!navigator.clipboard || !navigator.clipboard.read) {
+        pasteText();
+        return;
+      }
+
+      navigator.clipboard.read()
+        .then((items) => {
+          for (const item of items) {
+            const imageType = item.types.find((t) => t.indexOf('image/') === 0);
+            if (imageType) {
+              const ext = imageType.split('/')[1] || 'png';
+              return item.getType(imageType)
+                .then((blob) => blob.arrayBuffer())
+                .then((buffer) => sendFileAttachment(sessionId, 'clipboard.' + ext, buffer));
+            }
+          }
+          pasteText();
+        })
+        .catch(pasteText);
+    }
+
+    function copyToClipboard(text) {
+      var textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.top = '-1000px';
+      textarea.style.left = '-1000px';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      try {
+        document.execCommand('copy');
+      } catch (e) {
+        // ignore, nothing more we can do here
+      }
+      document.body.removeChild(textarea);
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(function () {});
+      }
+    }
+
+    function createSession(sessionId, theme) {
+      const container = document.createElement('div');
+      container.className = 'terminal-pane';
+      container.style.display = 'none';
+      terminalRoot.appendChild(container);
+
+      const resolvedTheme = theme || {
+        background: '#272c44',
+        foreground: '#e8ecf5',
+        cursor: '#58d0aa',
+        selectionBackground: 'rgba(109, 125, 189, 0.32)'
+      };
+      container.style.setProperty('--background', resolvedTheme.background);
+
+      const term = new Terminal({
+        cursorBlink: true,
+        fontFamily: 'Consolas, Cascadia Mono, monospace',
+        fontSize: 15,
+        lineHeight: 1.2,
+        scrollback: 5000,
+        convertEol: false,
+        theme: resolvedTheme
+      });
+
+      const fitAddon = new FitAddon();
+      term.loadAddon(fitAddon);
+      term.open(container);
+      term.options.allowTransparency = false;
+
+      container.addEventListener('mouseup', () => {
+        term.focus();
+      });
+
+      term.onData((data) => {
+        if (sessionId === activeSessionId) {
+          send('input:' + sessionId + ':' + encodeBase64Utf8(data));
+        }
+      });
+
+      term.attachCustomKeyEventHandler((event) => {
+        // xterm.js invokes this for both 'keydown' and 'keypress' — without this guard,
+        // every branch below (copy/paste) fires twice per physical key press.
+        if (event.type !== 'keydown') {
+          return true;
+        }
+
+        const key = event.key.toLowerCase();
+        if (event.ctrlKey && !event.shiftKey && key === 'c') {
+          const selection = term.getSelection();
+          if (selection) {
+            copyToClipboard(selection);
+            return false;
+          }
+          return true;
+        }
+
+        if (event.ctrlKey && event.shiftKey && key === 'c') {
+          const selection = term.getSelection();
+          if (selection) {
+            copyToClipboard(selection);
+          }
+          return false;
+        }
+
+        if (event.ctrlKey && !event.shiftKey && key === 'v') {
+          // Without preventDefault(), the browser's own native paste also fires on
+          // xterm's hidden input textarea (which xterm listens to for native paste
+          // support), double-inserting the clipboard text alongside this handler.
+          event.preventDefault();
+          handlePaste(sessionId);
+          return false;
+        }
+
+        return true;
+      });
+
+      const entry = {
+        term,
+        fitAddon,
+        container,
+        initialGeometrySent: false,
+        hasVisibleContent: false,
+        observer: null
+      };
+
+      entry.observer = new ResizeObserver(() => {
+        if (sessionId === activeSessionId) {
+          fitSession(sessionId);
+        }
+      });
+      entry.observer.observe(container);
+
+      sessions.set(sessionId, entry);
+      return entry;
+    }
+
+    function fitSession(sessionId) {
+      const entry = sessions.get(sessionId);
+      if (!entry) {
+        return undefined;
+      }
+
+      const geometry = entry.fitAddon.fit();
+      if (!geometry) {
+        requestAnimationFrame(() => fitSession(sessionId));
+        return undefined;
+      }
+
+      if (sessionId !== activeSessionId) {
+        return geometry;
+      }
+
+      if (!entry.initialGeometrySent) {
+        entry.initialGeometrySent = true;
+        send('init:' + entry.term.cols + ':' + entry.term.rows);
+      } else {
+        send('resize:' + entry.term.cols + ':' + entry.term.rows);
+      }
+
+      return geometry;
+    }
+
+    function scheduleInitialFit(sessionId) {
+      [0, 40, 120, 260, 500, 900, 1400].forEach((delay) => {
+        window.setTimeout(() => {
+          if (sessionId === activeSessionId) {
+            fitSession(sessionId);
+          }
+        }, delay);
+      });
+    }
+
+    function fitActive() {
+      if (!activeSessionId) {
+        return undefined;
+      }
+      return fitSession(activeSessionId);
+    }
+
+    window.appForceFit = function () {
+      fitActive();
+      if (activeSessionId) {
+        scheduleInitialFit(activeSessionId);
+      }
+      window.dispatchEvent(new Event('resize'));
+    };
+
+    window.appOpenSession = function (sessionId, background, foreground, cursor, selectionBackground) {
+      if (sessions.has(sessionId)) {
+        return;
+      }
+      const theme = (background && foreground && cursor && selectionBackground)
+        ? { background, foreground, cursor, selectionBackground }
+        : undefined;
+      createSession(sessionId, theme);
+    };
+
+    window.appSetSessionTheme = function (sessionId, background, foreground, cursor, selectionBackground) {
+      const entry = sessions.get(sessionId);
+      if (!entry) {
+        return;
+      }
+
+      entry.container.style.setProperty('--background', background);
+      entry.term.options.theme = { background, foreground, cursor, selectionBackground };
+      entry.term.refresh(0, entry.term.rows - 1);
+    };
+
+    window.appSwitchSession = function (sessionId) {
+      const entry = sessions.get(sessionId);
+      if (!entry) {
+        return;
+      }
+
+      if (activeSessionId && sessions.has(activeSessionId)) {
+        sessions.get(activeSessionId).container.style.display = 'none';
+      }
+
+      activeSessionId = sessionId;
+      entry.container.style.display = 'block';
+      entry.initialGeometrySent = false;
+      fitSession(sessionId);
+      scheduleInitialFit(sessionId);
+      entry.term.focus();
+    };
+
+    window.appCloseSession = function (sessionId) {
+      const entry = sessions.get(sessionId);
+      if (!entry) {
+        return;
+      }
+
+      entry.observer.disconnect();
+      entry.term.dispose();
+      entry.container.remove();
+      sessions.delete(sessionId);
+
+      if (activeSessionId === sessionId) {
+        activeSessionId = null;
+      }
+    };
+
+    var MOUSE_TRACKING_SEQUENCE = /\x1b\[\?(9|1000|1001|1002|1003|1005|1006|1015)[hl]/g;
+
+    function stripMouseTracking(data) {
+      return data.replace(MOUSE_TRACKING_SEQUENCE, '');
+    }
+
+    function terminalHasVisibleContent(term) {
+      const buffer = term.buffer.active;
+      for (let i = 0; i < term.rows; i++) {
+        const line = buffer.getLine(i);
+        if (line && line.translateToString(true).trim().length > 0) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    window.appReceiveData = function (sessionId, payload) {
+      const entry = sessions.get(sessionId);
+      if (!entry) {
+        return;
+      }
+      entry.term.write(stripMouseTracking(decodeBase64Utf8(payload)), () => {
+        if (!entry.hasVisibleContent && terminalHasVisibleContent(entry.term)) {
+          entry.hasVisibleContent = true;
+          send('visible:' + sessionId);
+        }
+      });
+    };
+
+    window.appReceiveMessage = function (sessionId, payload) {
+      const entry = sessions.get(sessionId);
+      if (!entry) {
+        return;
+      }
+      entry.term.writeln(decodeBase64Utf8(payload));
+    };
+
+    window.addEventListener('resize', () => {
+      window.clearTimeout(window.__fitTimeout);
+      window.__fitTimeout = window.setTimeout(fitActive, 40);
+    });
+
+    send('ready');
+  </script>
+</body>
+</html>

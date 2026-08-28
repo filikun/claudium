@@ -1,0 +1,529 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="Claudium.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:Claudium"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Background="{StaticResource AppPageBrush}"
+    mc:Ignorable="d">
+    <Grid x:Name="RootGrid" Background="{StaticResource AppPageBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid x:Name="TabStripBar"
+              Grid.Row="0"
+              Background="{StaticResource AppSurfaceBrush}"
+              Padding="8,4"
+              ColumnSpacing="8"
+              Visibility="Collapsed">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <ListView x:Name="TabStripListView"
+                      Grid.Column="0"
+                      Background="Transparent"
+                      SelectionMode="Single"
+                      SelectionChanged="TabStripListView_SelectionChanged">
+                <!--
+                    Each tab already paints its own background/selected look via the
+                    Border in the DataTemplate below. Without these overrides, WinUI's
+                    default ListViewItem template still draws its own square
+                    hover/selected/pressed background behind that Border, which peeks out
+                    around its rounded top corners as a mismatched patch of color.
+                -->
+                <ListView.Resources>
+                    <SolidColorBrush x:Key="ListViewItemBackground" Color="Transparent" />
+                    <SolidColorBrush x:Key="ListViewItemBackgroundPointerOver" Color="Transparent" />
+                    <SolidColorBrush x:Key="ListViewItemBackgroundPressed" Color="Transparent" />
+                    <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="Transparent" />
+                    <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="Transparent" />
+                    <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="Transparent" />
+                </ListView.Resources>
+                <ListView.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ListView.ItemsPanel>
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="Margin" Value="0,0,4,0" />
+                    </Style>
+                </ListView.ItemContainerStyle>
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="local:TerminalTabItem">
+                        <Border Padding="12,6"
+                                Background="{x:Bind Background}"
+                                CornerRadius="8,8,0,0"
+                                BorderThickness="0,0,0,2"
+                                BorderBrush="{x:Bind AccentBarBrush}">
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <Ellipse Grid.Column="0"
+                                         Width="7"
+                                         Height="7"
+                                         Fill="{x:Bind StatusDotBrush}"
+                                         VerticalAlignment="Center"
+                                         Visibility="{x:Bind StatusDotVisibility}"
+                                         Tag="{x:Bind StatusDotAnimation}"
+                                         Loaded="StatusDot_Loaded"
+                                         ToolTipService.ToolTip="{x:Bind StatusDotTooltip}" />
+
+                                <TextBlock Grid.Column="1"
+                                           Text="{x:Bind Name}"
+                                           Foreground="{StaticResource AppTextPrimaryBrush}"
+                                           FontSize="13"
+                                           FontWeight="{x:Bind NameFontWeight}"
+                                           VerticalAlignment="Center"
+                                           MaxWidth="160"
+                                           TextTrimming="CharacterEllipsis" />
+
+                                <Button Grid.Column="2"
+                                        Content="&#x2715;"
+                                        Tag="{x:Bind SessionId}"
+                                        Click="CloseTabButton_Click"
+                                        Background="Transparent"
+                                        Foreground="{StaticResource AppTextSecondaryBrush}"
+                                        BorderThickness="0"
+                                        Padding="4,0"
+                                        FontSize="11"
+                                        ToolTipService.ToolTip="Stäng flik" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <Button x:Name="SessionSettingsButton"
+                    Grid.Column="1"
+                    Content="&#x2699;"
+                    Background="Transparent"
+                    Foreground="{StaticResource AppTextTertiaryBrush}"
+                    BorderThickness="0"
+                    FontSize="16"
+                    VerticalAlignment="Center"
+                    Padding="8,4"
+                    ToolTipService.ToolTip="Byt permission mode, modell eller effort för denna session">
+                <Button.Flyout>
+                    <Flyout x:Name="SessionSettingsFlyout" Placement="Bottom" Opening="SessionSettingsFlyout_Opening">
+                        <Flyout.FlyoutPresenterStyle>
+                            <Style TargetType="FlyoutPresenter">
+                                <Setter Property="Background" Value="{StaticResource AppSurfaceBrush}" />
+                                <Setter Property="CornerRadius" Value="10" />
+                            </Style>
+                        </Flyout.FlyoutPresenterStyle>
+                        <StackPanel Spacing="10" MinWidth="200">
+                            <TextBlock Text="Claude-inställningar (denna session)" Foreground="{StaticResource AppTextPrimaryBrush}" FontSize="13" FontWeight="SemiBold" TextWrapping="WrapWholeWords" />
+
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Modell" Foreground="{StaticResource AppTextSecondaryBrush}" FontSize="11" />
+                                <ComboBox x:Name="SessionModelComboBox"
+                                          SelectedValuePath="Tag"
+                                          SelectionChanged="SessionModelComboBox_SelectionChanged"
+                                          HorizontalAlignment="Stretch">
+                                    <ComboBoxItem Content="Sonnet" Tag="sonnet" />
+                                    <ComboBoxItem Content="Opus" Tag="opus" />
+                                    <ComboBoxItem Content="Fable" Tag="fable" />
+                                </ComboBox>
+                            </StackPanel>
+
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Effort" Foreground="{StaticResource AppTextSecondaryBrush}" FontSize="11" />
+                                <ComboBox x:Name="SessionEffortComboBox"
+                                          SelectedValuePath="Tag"
+                                          SelectionChanged="SessionEffortComboBox_SelectionChanged"
+                                          HorizontalAlignment="Stretch">
+                                    <ComboBoxItem Content="Low" Tag="low" />
+                                    <ComboBoxItem Content="Medium" Tag="medium" />
+                                    <ComboBoxItem Content="High" Tag="high" />
+                                    <ComboBoxItem Content="X-High" Tag="xhigh" />
+                                    <ComboBoxItem Content="Max" Tag="max" />
+                                </ComboBox>
+                            </StackPanel>
+                        </StackPanel>
+                    </Flyout>
+                </Button.Flyout>
+            </Button>
+
+            <Button x:Name="AttachFileButton"
+                    Grid.Column="2"
+                    Content="&#x1F4CE;"
+                    Click="AttachFileButton_Click"
+                    Background="{StaticResource AppNeutralButtonBrush}"
+                    Foreground="{StaticResource AppTextPrimaryBrush}"
+                    CornerRadius="6"
+                    Padding="10,4"
+                    VerticalAlignment="Center"
+                    ToolTipService.ToolTip="Bifoga fil till Claude" />
+
+            <Button x:Name="AddTabButton"
+                    Grid.Column="3"
+                    Content="+"
+                    Click="AddTabButton_Click"
+                    Background="{StaticResource AppAccentBrush}"
+                    Foreground="White"
+                    CornerRadius="6"
+                    Padding="14,4"
+                    VerticalAlignment="Center"
+                    ToolTipService.ToolTip="Ny flik" />
+        </Grid>
+
+        <Grid Grid.Row="1">
+            <WebView2 x:Name="TerminalView"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch"
+                      Margin="0" />
+
+            <Border x:Name="UsageOverlay"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom"
+                    Margin="0,0,18,8"
+                    Padding="0"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Visibility="Collapsed">
+                <Grid x:Name="SessionUsageIcon"
+                      Width="18"
+                      Height="18">
+                    <Ellipse Fill="{StaticResource AppNeutralButtonBrush}" />
+                    <Path x:Name="SessionArcPath"
+                          Fill="#7EDBFF"
+                          Stretch="None" />
+                </Grid>
+            </Border>
+
+            <Border x:Name="StatusOverlay"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Bottom"
+                    Margin="24"
+                    Padding="16,12"
+                    Visibility="Collapsed"
+                    Background="{StaticResource AppSurfaceOverlayBrush}"
+                    CornerRadius="12">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Claude Code"
+                               Foreground="{StaticResource AppTextPrimaryBrush}"
+                               FontSize="16"
+                               FontWeight="SemiBold" />
+                    <TextBlock x:Name="StatusText"
+                               Text="Startar terminalen..."
+                               Foreground="{StaticResource AppTextTertiaryBrush}"
+                               FontSize="12"
+                               TextWrapping="WrapWholeWords" />
+                </StackPanel>
+            </Border>
+
+            <!--
+                Full-bleed cover, not just a floating spinner — the terminal underneath
+                still renders while Claude Code starts (including xterm's own scrollbar
+                gutter), so anything less than opaque and full-size lets that peek out
+                around the edges during the brief loading window.
+            -->
+            <Grid x:Name="LoadingOverlay"
+                  Background="{StaticResource AppPageBrush}"
+                  Visibility="Collapsed"
+                  IsHitTestVisible="False">
+                <StackPanel HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Spacing="12">
+                    <ProgressRing IsActive="True"
+                                  Width="40"
+                                  Height="40"
+                                  Foreground="#7EDBFF" />
+                    <TextBlock Text="Startar Claude Code..."
+                               Foreground="{StaticResource AppTextTertiaryBrush}"
+                               FontSize="13"
+                               HorizontalAlignment="Center" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Launcher: shown until a working directory is picked (or when adding another tab). -->
+            <Grid x:Name="LauncherPanel" Background="{StaticResource AppPageBrush}">
+                <Grid MaxWidth="640" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,20">
+                        <TextBlock Text="Claude Code"
+                                   Foreground="{StaticResource AppTextPrimaryBrush}"
+                                   FontSize="26"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="Välj en sparad katalog eller starta i en ny mapp."
+                                   Foreground="{StaticResource AppTextSecondaryBrush}"
+                                   FontSize="13" />
+                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,10,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="Tema:"
+                                       Foreground="{StaticResource AppTextSecondaryBrush}"
+                                       FontSize="12"
+                                       VerticalAlignment="Center" />
+                            <ComboBox x:Name="AppThemeComboBox"
+                                      SelectedValuePath="Tag"
+                                      SelectionChanged="AppThemeComboBox_SelectionChanged"
+                                      FontSize="12"
+                                      MinWidth="140">
+                                <ComboBoxItem Content="Mörkblå" Tag="dark_blue" />
+                                <ComboBoxItem Content="Kolsvart" Tag="near_black" />
+                                <ComboBoxItem Content="Bärnsten" Tag="warm_amber" />
+                                <ComboBoxItem Content="Djuphav" Tag="deep_teal" />
+                                <ComboBoxItem Content="Violett" Tag="deep_violet" />
+                            </ComboBox>
+                            <Button x:Name="CheckForUpdatesButton"
+                                    Content="Sök efter uppdateringar"
+                                    Click="CheckForUpdatesButton_Click"
+                                    Background="{StaticResource AppNeutralButtonBrush}"
+                                    Foreground="{StaticResource AppTextPrimaryBrush}"
+                                    CornerRadius="8"
+                                    Padding="12,6"
+                                    FontSize="12"
+                                    Margin="8,0,0,0" />
+                        </StackPanel>
+                        <Border x:Name="UpdateStatusChip"
+                                Background="{StaticResource AppSurfaceBrush}"
+                                CornerRadius="6"
+                                Padding="10,6"
+                                Margin="0,6,0,0"
+                                HorizontalAlignment="Left"
+                                Visibility="Collapsed">
+                            <Border.Transitions>
+                                <TransitionCollection>
+                                    <ContentThemeTransition />
+                                </TransitionCollection>
+                            </Border.Transitions>
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <ProgressRing x:Name="UpdateProgressRing"
+                                              IsActive="False"
+                                              Width="13"
+                                              Height="13"
+                                              Foreground="{StaticResource AppTextSecondaryBrush}" />
+                                <FontIcon x:Name="UpdateStatusIcon"
+                                          FontFamily="Segoe Fluent Icons"
+                                          FontSize="12"
+                                          Glyph="&#xE946;"
+                                          Foreground="{StaticResource AppTextSecondaryBrush}"
+                                          Visibility="Collapsed" />
+                                <TextBlock x:Name="UpdateStatusText"
+                                           Foreground="{StaticResource AppTextSecondaryBrush}"
+                                           FontSize="11"
+                                           TextWrapping="WrapWholeWords"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <TextBlock x:Name="EmptyStateText"
+                               Grid.Row="1"
+                               Text="Inga sparade kataloger ännu. Lägg till en nedan."
+                               Foreground="{StaticResource AppTextSecondaryBrush}"
+                               FontSize="13"
+                               Margin="0,0,0,12"
+                               Visibility="Collapsed" />
+
+                    <ListView x:Name="WorkspaceListView"
+                              Grid.Row="2"
+                              MaxHeight="360"
+                              Background="{StaticResource AppSurfaceBrush}"
+                              CornerRadius="12"
+                              Padding="4"
+                              SelectionMode="None">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="local:WorkspaceListItem">
+                                <Grid Padding="12,10" ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Button Grid.Column="0"
+                                            Content="{x:Bind StarGlyph}"
+                                            Tag="{x:Bind Id}"
+                                            Click="FavoriteToggle_Click"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Foreground="{StaticResource AppFavoriteBrush}"
+                                            FontSize="16"
+                                            ToolTipService.ToolTip="Markera som favorit" />
+
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                        <TextBlock Text="{x:Bind Name}"
+                                                   Foreground="{StaticResource AppTextPrimaryBrush}"
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold" />
+                                        <TextBlock Text="{x:Bind Path}"
+                                                   Foreground="{StaticResource AppTextSecondaryBrush}"
+                                                   FontSize="11"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+
+                                    <Button Grid.Column="2"
+                                            Content="&#x2699;"
+                                            Tag="{x:Bind Id}"
+                                            Background="Transparent"
+                                            Foreground="{StaticResource AppTextTertiaryBrush}"
+                                            BorderThickness="0"
+                                            FontSize="15"
+                                            AutomationProperties.Name="{x:Bind Name}"
+                                            ToolTipService.ToolTip="Claude-inställningar för detta projekt">
+                                        <Button.Flyout>
+                                            <Flyout Placement="Bottom">
+                                                <Flyout.FlyoutPresenterStyle>
+                                                    <Style TargetType="FlyoutPresenter">
+                                                        <Setter Property="Background" Value="{StaticResource AppSurfaceBrush}" />
+                                                        <Setter Property="CornerRadius" Value="10" />
+                                                    </Style>
+                                                </Flyout.FlyoutPresenterStyle>
+                                                <StackPanel Spacing="10" MinWidth="200">
+                                                    <TextBlock Text="Claude-inställningar" Foreground="{StaticResource AppTextPrimaryBrush}" FontSize="13" FontWeight="SemiBold" />
+
+                                                    <StackPanel Spacing="4">
+                                                        <TextBlock Text="Permission mode" Foreground="{StaticResource AppTextSecondaryBrush}" FontSize="11" />
+                                                        <ComboBox Tag="{x:Bind Id}"
+                                                                  AutomationProperties.Name="Permission mode"
+                                                                  ItemsSource="{x:Bind PermissionModeOptions}"
+                                                                  DisplayMemberPath="Name"
+                                                                  SelectedValuePath="Id"
+                                                                  SelectedValue="{x:Bind PermissionMode, Mode=OneWay}"
+                                                                  SelectionChanged="WorkspacePermissionModeComboBox_SelectionChanged"
+                                                                  HorizontalAlignment="Stretch" />
+                                                    </StackPanel>
+
+                                                    <StackPanel Spacing="4">
+                                                        <TextBlock Text="Modell" Foreground="{StaticResource AppTextSecondaryBrush}" FontSize="11" />
+                                                        <ComboBox Tag="{x:Bind Id}"
+                                                                  AutomationProperties.Name="Modell"
+                                                                  ItemsSource="{x:Bind ModelOptions}"
+                                                                  DisplayMemberPath="Name"
+                                                                  SelectedValuePath="Id"
+                                                                  SelectedValue="{x:Bind Model, Mode=OneWay}"
+                                                                  SelectionChanged="WorkspaceModelComboBox_SelectionChanged"
+                                                                  HorizontalAlignment="Stretch" />
+                                                    </StackPanel>
+
+                                                    <StackPanel Spacing="4">
+                                                        <TextBlock Text="Effort" Foreground="{StaticResource AppTextSecondaryBrush}" FontSize="11" />
+                                                        <ComboBox Tag="{x:Bind Id}"
+                                                                  AutomationProperties.Name="Effort"
+                                                                  ItemsSource="{x:Bind EffortOptions}"
+                                                                  DisplayMemberPath="Name"
+                                                                  SelectedValuePath="Id"
+                                                                  SelectedValue="{x:Bind Effort, Mode=OneWay}"
+                                                                  SelectionChanged="WorkspaceEffortComboBox_SelectionChanged"
+                                                                  HorizontalAlignment="Stretch" />
+                                                    </StackPanel>
+
+                                                    <StackPanel Spacing="4">
+                                                        <TextBlock Text="Tema" Foreground="{StaticResource AppTextSecondaryBrush}" FontSize="11" />
+                                                        <ComboBox Tag="{x:Bind Id}"
+                                                                  AutomationProperties.Name="Tema"
+                                                                  ItemsSource="{x:Bind ThemeOptions}"
+                                                                  DisplayMemberPath="Name"
+                                                                  SelectedValuePath="Id"
+                                                                  SelectedValue="{x:Bind ThemeId, Mode=OneWay}"
+                                                                  SelectionChanged="WorkspaceThemeComboBox_SelectionChanged"
+                                                                  HorizontalAlignment="Stretch" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Flyout>
+                                        </Button.Flyout>
+                                    </Button>
+
+                                    <Button Grid.Column="3"
+                                            Content="Byt namn"
+                                            Tag="{x:Bind Id}"
+                                            Click="RenameWorkspace_Click"
+                                            Background="Transparent"
+                                            Foreground="{StaticResource AppTextTertiaryBrush}"
+                                            BorderThickness="0" />
+
+                                    <Button Grid.Column="4"
+                                            Content="Ta bort"
+                                            Tag="{x:Bind Id}"
+                                            Click="RemoveWorkspace_Click"
+                                            Background="Transparent"
+                                            Foreground="{StaticResource AppDangerBrush}"
+                                            BorderThickness="0" />
+
+                                    <Button Grid.Column="5"
+                                            Content="Starta"
+                                            Tag="{x:Bind Id}"
+                                            Click="StartWorkspace_Click"
+                                            Background="{x:Bind StartButtonBrush}"
+                                            Foreground="White"
+                                            CornerRadius="6"
+                                            Padding="14,6" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="12" Margin="0,20,0,0">
+                        <Button x:Name="AddDirectoryButton"
+                                Content="+ Lägg till mapp"
+                                Click="AddDirectoryButton_Click"
+                                Background="{StaticResource AppNeutralButtonBrush}"
+                                Foreground="{StaticResource AppTextPrimaryBrush}"
+                                CornerRadius="8"
+                                Padding="14,8" />
+                        <Button x:Name="BrowseAndStartButton"
+                                Content="Välj mapp och starta"
+                                Click="BrowseAndStartButton_Click"
+                                Background="Transparent"
+                                BorderBrush="{StaticResource AppNeutralButtonBrush}"
+                                BorderThickness="1"
+                                Foreground="{StaticResource AppTextPrimaryBrush}"
+                                CornerRadius="8"
+                                Padding="14,8" />
+                        <Button x:Name="CancelAddTabButton"
+                                Content="Avbryt"
+                                Click="CancelAddTabButton_Click"
+                                Background="Transparent"
+                                Foreground="{StaticResource AppTextSecondaryBrush}"
+                                BorderThickness="0"
+                                Padding="14,8"
+                                Visibility="Collapsed" />
+                    </StackPanel>
+                </Grid>
+
+                <!--
+                    Build version + timestamp, pinned to the true bottom of the launcher
+                    (outside the centered content box) so it's always visible regardless of
+                    how many saved workspaces are listed above — lets us confirm at a glance
+                    that a freshly published build actually reached the running app.
+                -->
+                <TextBlock x:Name="VersionText"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Bottom"
+                           Margin="0,0,0,10"
+                           Foreground="{StaticResource AppTextTertiaryBrush}"
+                           FontSize="11"
+                           Opacity="0.6" />
+            </Grid>
+        </Grid>
+    </Grid>
+</Page>
