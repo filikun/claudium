@@ -30,12 +30,30 @@ jobs:
         shell: bash
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
-      - name: Publish self-contained app
-        run: >
-          dotnet publish source/Claudium.csproj
-          -c Release -p:Platform=x64
-          -r win-x64 --self-contained true
-          -o publish-release
+      # IMPORTANT: this must be `dotnet build`, not `dotnet publish` — publish silently
+      # skips regenerating the compiled XAML (App.xbf/MainPage.xbf/MainWindow.xbf) and
+      # the resource index (Claudium.pri). A fresh Claudium.dll paired with stale/missing
+      # XAML binaries crashes instantly on launch with no window (0xc000027b) — see the
+      # same warning in publish.ps1, which this mirrors for the release build.
+      - name: Build self-contained app
+        run: dotnet build source/Claudium.csproj -c Release -p:Platform=x64
+
+      - name: Verify compiled XAML was generated
+        shell: bash
+        run: |
+          dir="source/bin/x64/Release/net8.0-windows10.0.26100.0/win-x64"
+          for f in App.xbf MainPage.xbf MainWindow.xbf Claudium.pri; do
+            if [ ! -f "$dir/$f" ]; then
+              echo "::error::Build output is missing $f — refusing to pack a build that would crash on startup."
+              exit 1
+            fi
+          done
+
+      - name: Stage build output for packing
+        shell: bash
+        run: |
+          mkdir -p publish-release
+          cp -r source/bin/x64/Release/net8.0-windows10.0.26100.0/win-x64/. publish-release/
 
       - name: Install vpk
         run: dotnet tool install -g vpk
