@@ -1,0 +1,62 @@
+name: Release
+
+# Triggered by pushing a version tag, e.g.:
+#   git tag v1.2.0
+#   git push origin v1.2.0
+# Bump <Version> in source/Claudium.csproj to match the tag before tagging —
+# Velopack uses that number to compute the delta patch against the previous release.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Get version from tag
+        id: get-version
+        shell: bash
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish self-contained app
+        run: >
+          dotnet publish source/Claudium.csproj
+          -c Release -p:Platform=x64
+          -r win-x64 --self-contained true
+          -o publish-release
+
+      - name: Install vpk
+        run: dotnet tool install -g vpk
+
+      - name: Download previous release (for delta patches)
+        run: vpk download github --repoUrl https://github.com/${{ github.repository }}
+
+      - name: Pack release
+        run: >
+          vpk pack
+          -u Claudium
+          -v ${{ steps.get-version.outputs.version }}
+          -p publish-release
+          -e Claudium.exe
+          --icon source/Assets/AppIcon.ico
+
+      - name: Upload release to GitHub
+        run: >
+          vpk upload github
+          --repoUrl https://github.com/${{ github.repository }}
+          --token ${{ secrets.GITHUB_TOKEN }}
+          --publish
+          --releaseName "Claudium ${{ steps.get-version.outputs.version }}"
+          --tag ${{ github.ref_name }}

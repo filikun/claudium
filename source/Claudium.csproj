@@ -17,6 +17,13 @@
     <Nullable>enable</Nullable>
 
     <!--
+      Velopack needs to run VelopackApp.Build().Run() as the very first line of Main(),
+      before Application.Start(). WinUI's default source-generated Main doesn't allow
+      that, so this switches it off in favor of the hand-written Main in Program.cs.
+    -->
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+
+    <!--
       Bump this on every change that should reach the published app — shown at the bottom
       of the launcher page alongside the build timestamp, so a stale publish-fresh build
       (the app users actually run — see publish.ps1) is immediately obvious rather than
@@ -68,6 +75,7 @@
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2526" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.4.0" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinApp" Version="0.6.1" />
+    <PackageReference Include="Velopack" Version="1.2.0" />
   </ItemGroup>
 
   <!--
@@ -85,5 +93,16 @@
     <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
     <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
     <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">False</PublishTrimmed>
+  </PropertyGroup>
+
+  <!--
+    Self-contained publish for Release only: Velopack packages the publish output
+    as-is, so it must include the .NET runtime and Windows App SDK runtime rather
+    than assuming they're preinstalled on the user's machine. Used by the release
+    workflow (dotnet publish -c Release -r win-x64), not by local dotnet build.
+  -->
+  <PropertyGroup Condition="'$(Configuration)' != 'Debug'">
+    <SelfContained>true</SelfContained>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
   </PropertyGroup>
 </Project>
