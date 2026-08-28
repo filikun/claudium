@@ -29,7 +29,7 @@
       (the app users actually run — see publish.ps1) is immediately obvious rather than
       silently missing whatever was just changed in source.
     -->
-    <Version>1.1.6</Version>
+    <Version>1.1.7</Version>
   </PropertyGroup>
 
   <ItemGroup>
