@@ -12,6 +12,16 @@ public static class UpdateService
 {
     private const string RepoUrl = "https://github.com/filikun/claudium";
 
+    private static UpdateManager? _armedManager;
+
+    /// <summary>
+    /// Raised off the UI thread once a downloaded update is armed and ready — the update
+    /// applies automatically the next time this process exits, whether that's the user
+    /// clicking "restart now" (<see cref="RestartNow"/>) or just closing the app normally.
+    /// The argument is the new version (e.g. "1.1.6").
+    /// </summary>
+    public static event Action<string>? UpdateReady;
+
     public static async Task CheckForUpdatesAsync()
     {
         try
@@ -30,14 +40,32 @@ public static class UpdateService
 
             await manager.DownloadUpdatesAsync(newVersion);
 
-            // Applies on next restart rather than forcing one now, so an update
-            // never yanks the window away from the user mid-session.
-            manager.WaitExitThenApplyUpdates(newVersion, restart: false);
+            // Arms the updater to apply + relaunch automatically on the next process
+            // exit — restart:true so a plain close (not just the explicit button) also
+            // picks up the update rather than requiring the user to notice and act.
+            manager.WaitExitThenApplyUpdates(newVersion, silent: false, restart: true);
+            _armedManager = manager;
+
+            UpdateReady?.Invoke(newVersion.TargetFullRelease.Version.ToString());
         }
         catch
         {
             // A failed update check (offline, GitHub rate limit, etc.) must never
             // block or crash the app — it just tries again on the next launch.
         }
+    }
+
+    /// <summary>
+    /// Closes the app so the already-armed updater (see <see cref="CheckForUpdatesAsync"/>)
+    /// can apply the update and relaunch Claudium automatically.
+    /// </summary>
+    public static void RestartNow()
+    {
+        if (_armedManager == null)
+        {
+            return;
+        }
+
+        Microsoft.UI.Xaml.Application.Current.Exit();
     }
 }

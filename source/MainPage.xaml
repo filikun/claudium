@@ -525,5 +525,45 @@
                            Opacity="0.6" />
             </Grid>
         </Grid>
+
+        <!--
+            App-level update banner (Claudium itself, via Velopack) — deliberately
+            separate from UpdateStatusChip above, which is about the Claude Code CLI.
+            Spans both rows and sits last so it floats on top regardless of whether the
+            launcher or a terminal tab is showing.
+        -->
+        <Border x:Name="AppUpdateBanner"
+                Grid.Row="0"
+                Grid.RowSpan="2"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                Margin="0,16,0,0"
+                Padding="16,10"
+                Visibility="Collapsed"
+                Background="{StaticResource AppSurfaceOverlayBrush}"
+                CornerRadius="12">
+            <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <TextBlock x:Name="AppUpdateBannerText"
+                           Foreground="{StaticResource AppTextPrimaryBrush}"
+                           FontSize="13"
+                           VerticalAlignment="Center" />
+                <Button x:Name="AppUpdateRestartButton"
+                        Content="Starta om nu"
+                        Click="AppUpdateRestartButton_Click"
+                        Background="{StaticResource AppNeutralButtonBrush}"
+                        Foreground="{StaticResource AppTextPrimaryBrush}"
+                        CornerRadius="8"
+                        Padding="12,6"
+                        FontSize="12" />
+                <Button x:Name="AppUpdateDismissButton"
+                        Content="✕"
+                        Click="AppUpdateDismissButton_Click"
+                        Background="Transparent"
+                        Foreground="{StaticResource AppTextTertiaryBrush}"
+                        BorderThickness="0"
+                        Padding="6"
+                        FontSize="12" />
+            </StackPanel>
+        </Border>
     </Grid>
 </Page>

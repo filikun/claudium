@@ -280,6 +280,8 @@ public sealed partial class MainPage : Page
         SizeChanged += MainPage_SizeChanged;
         SetupUsageRefreshTimer();
 
+        Services.UpdateService.UpdateReady += OnAppUpdateReady;
+
         _appSettings = _appSettingsStore.Load();
         _workspaces = _workspaceStore.Load();
         BackfillDefaultClaudeSettings();
@@ -329,7 +331,31 @@ public sealed partial class MainPage : Page
 
     private void MainPage_Unloaded(object sender, RoutedEventArgs e)
     {
+        Services.UpdateService.UpdateReady -= OnAppUpdateReady;
         StopHelper();
+    }
+
+    /// <summary>
+    /// Fires off the UI thread (UpdateService runs the check/download in the background),
+    /// so the banner itself is shown via DispatcherQueue.
+    /// </summary>
+    private void OnAppUpdateReady(string newVersion)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            AppUpdateBannerText.Text = $"Claudium {newVersion} har laddats ner och är redo. Starta om för att uppdatera.";
+            AppUpdateBanner.Visibility = Visibility.Visible;
+        });
+    }
+
+    private void AppUpdateRestartButton_Click(object sender, RoutedEventArgs e)
+    {
+        Services.UpdateService.RestartNow();
+    }
+
+    private void AppUpdateDismissButton_Click(object sender, RoutedEventArgs e)
+    {
+        AppUpdateBanner.Visibility = Visibility.Collapsed;
     }
 
     private void MainPage_SizeChanged(object sender, SizeChangedEventArgs e)
