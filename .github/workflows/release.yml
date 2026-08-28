@@ -25,6 +25,10 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Fetch bundled Node.js runtime
+        shell: pwsh
+        run: .\scripts\fetch-node.ps1
+
       - name: Get version from tag
         id: get-version
         shell: bash

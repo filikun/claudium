@@ -1474,9 +1474,15 @@ public sealed partial class MainPage : Page
 
         try
         {
+            // Bundled under Assets\Terminal\node\ by scripts\fetch-node.ps1 (see publish.ps1
+            // and the release workflow) so Claudium doesn't depend on Node.js being installed
+            // system-wide. Falls back to PATH resolution for dev setups that predate this.
+            string bundledNodeExe = Path.Combine(AppContext.BaseDirectory, "Assets", "Terminal", "node", "node.exe");
+            string nodeExe = File.Exists(bundledNodeExe) ? bundledNodeExe : "node.exe";
+
             var psi = new ProcessStartInfo
             {
-                FileName = "node.exe",
+                FileName = nodeExe,
                 Arguments = "\"" + Path.Combine(AppContext.BaseDirectory, "Assets", "Terminal", "terminal-helper.js") + "\"",
                 WorkingDirectory = Path.Combine(AppContext.BaseDirectory, "Assets", "Terminal"),
                 UseShellExecute = false,

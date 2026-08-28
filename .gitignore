@@ -15,5 +15,8 @@ NUL
 source/Assets/Terminal/node-pty/node-addon-api/**/obj/
 source/Assets/Terminal/node-pty/node-addon-api/**/Release/*.log
 
+## Bundled Node.js runtime — fetched by scripts/fetch-node.ps1, not committed (~80MB)
+source/Assets/Terminal/node/
+
 ## OS
 Thumbs.db

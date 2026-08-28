@@ -31,6 +31,8 @@ $sourceDir = Join-Path $repoRoot 'source'
 $buildOutputDir = Join-Path $sourceDir 'bin\x64\Release\net8.0-windows10.0.26100.0\win-x64'
 $publishDir = Join-Path $repoRoot 'publish-fresh'
 
+& (Join-Path $repoRoot 'scripts\fetch-node.ps1')
+
 Push-Location $sourceDir
 try {
     dotnet build -c Release -p:Platform=x64

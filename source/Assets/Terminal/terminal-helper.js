@@ -224,6 +224,16 @@ function openSessionNow(sessionId, sessionRequest) {
     return;
   }
 
+  try {
+    execFileSync('claude.exe', ['--version'], { timeout: 5000, windowsHide: true, stdio: 'ignore' });
+  } catch (error) {
+    emitStatus(
+      sessionId,
+      'Claude Code CLI hittades inte. Installera det (se docs.claude.com/claude-code) och starta om Claudium.'
+    );
+    return;
+  }
+
   const ptyProcess = nodePty.spawn('claude.exe', buildClaudeArgs(sessionRequest), {
     name: 'xterm-256color',
     cols: currentCols,
