@@ -932,7 +932,9 @@ public sealed partial class MainPage : Page
     /// </summary>
     private void ApplyActiveTheme()
     {
-        AppTheme theme = _activeSessionId is Guid activeId && _sessions.TryGetValue(activeId, out TerminalSessionInfo? activeSession)
+        bool launcherVisible = LauncherPanel.Visibility == Visibility.Visible;
+
+        AppTheme theme = !launcherVisible && _activeSessionId is Guid activeId && _sessions.TryGetValue(activeId, out TerminalSessionInfo? activeSession)
             ? ResolveWorkspaceTheme(activeSession.Profile)
             : AppThemes.Resolve(_appSettings.ThemeId);
 
@@ -1140,12 +1142,14 @@ public sealed partial class MainPage : Page
     private void CancelAddTabButton_Click(object sender, RoutedEventArgs e)
     {
         LauncherPanel.Visibility = Visibility.Collapsed;
+        ApplyActiveTheme();
     }
 
     private void ShowLauncherForNewTab()
     {
         CancelAddTabButton.Visibility = _sessions.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         LauncherPanel.Visibility = Visibility.Visible;
+        ApplyActiveTheme();
         RefreshWorkspaceList();
     }
 
