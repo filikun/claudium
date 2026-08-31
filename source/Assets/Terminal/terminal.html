@@ -314,6 +314,20 @@
         return true;
       });
 
+      term.attachCustomWheelEventHandler((event) => {
+        // When the child process is on the alternate screen buffer (e.g. the
+        // interactive Claude Code CLI), xterm has no scrollback to move and,
+        // absent mouse reporting (stripped below), falls back to sending
+        // Up/Down arrow key sequences on wheel scroll. Claude Code's CLI
+        // treats those as "recall previous input" rather than "scroll",
+        // spuriously reprinting the last command. Swallow wheel events in
+        // that mode instead of letting xterm forward them as arrow keys.
+        if (!term.buffer.active.hasScrollback) {
+          return false;
+        }
+        return true;
+      });
+
       const entry = {
         term,
         fitAddon,
