@@ -271,6 +271,21 @@
         term.focus();
       });
 
+      const entry = {
+        term,
+        fitAddon,
+        container,
+        initialGeometrySent: false,
+        hasVisibleContent: false,
+        observer: null,
+        // Set from the enable/disable sequences the child process sends (see
+        // stripMouseTracking) — true while the interactive CLI has asked for
+        // mouse reporting. We never let xterm itself see those sequences (it
+        // would disable its own text-selection while "in mouse mode"), so we
+        // track this ourselves and synthesize wheel reports by hand instead.
+        mouseTrackingEnabled: false
+      };
+
       term.onData((data) => {
         if (sessionId === activeSessionId) {
           send('input:' + sessionId + ':' + encodeBase64Utf8(data));
@@ -315,27 +330,31 @@
       });
 
       term.attachCustomWheelEventHandler((event) => {
+        if (event.deltaY === 0) {
+          return true;
+        }
+
         // When the child process is on the alternate screen buffer (e.g. the
-        // interactive Claude Code CLI), xterm has no scrollback to move and,
-        // absent mouse reporting (stripped below), falls back to sending
-        // Up/Down arrow key sequences on wheel scroll. Claude Code's CLI
-        // treats those as "recall previous input" rather than "scroll",
-        // spuriously reprinting the last command. Swallow wheel events in
-        // that mode instead of letting xterm forward them as arrow keys.
+        // interactive Claude Code CLI), xterm has no scrollback of its own to
+        // move. If the CLI has asked for mouse reporting (entry.mouseTrackingEnabled),
+        // it's managing scrolling itself — forward each wheel notch as a
+        // synthetic SGR mouse-wheel report instead of letting xterm fall back
+        // to sending Up/Down arrow keys, which Claude Code's CLI interprets as
+        // "recall previous input" rather than "scroll".
         if (!term.buffer.active.hasScrollback) {
+          if (entry.mouseTrackingEnabled) {
+            const button = event.deltaY < 0 ? 64 : 65;
+            const ticks = Math.max(1, Math.min(10, Math.round(Math.abs(event.deltaY) / 100)));
+            let report = '';
+            for (let i = 0; i < ticks; i++) {
+              report += '\x1b[<' + button + ';1;1M';
+            }
+            send('input:' + sessionId + ':' + encodeBase64Utf8(report));
+          }
           return false;
         }
         return true;
       });
-
-      const entry = {
-        term,
-        fitAddon,
-        container,
-        initialGeometrySent: false,
-        hasVisibleContent: false,
-        observer: null
-      };
 
       entry.observer = new ResizeObserver(() => {
         if (sessionId === activeSessionId) {
@@ -454,9 +473,19 @@
       }
     };
 
-    var MOUSE_TRACKING_SEQUENCE = /\x1b\[\?(9|1000|1001|1002|1003|1005|1006|1015)[hl]/g;
+    var MOUSE_TRACKING_SEQUENCE = /\x1b\[\?(9|1000|1001|1002|1003|1005|1006|1015)([hl])/g;
+    // Only these actually turn mouse reporting on/off; 1005/1006/1015 just pick
+    // an encoding for reports sent while one of the above is active.
+    var MOUSE_TRACKING_TOGGLE_CODES = new Set(['1000', '1001', '1002', '1003']);
 
-    function stripMouseTracking(data) {
+    function stripMouseTracking(data, entry) {
+      MOUSE_TRACKING_SEQUENCE.lastIndex = 0;
+      let match;
+      while ((match = MOUSE_TRACKING_SEQUENCE.exec(data))) {
+        if (entry && MOUSE_TRACKING_TOGGLE_CODES.has(match[1])) {
+          entry.mouseTrackingEnabled = match[2] === 'h';
+        }
+      }
       return data.replace(MOUSE_TRACKING_SEQUENCE, '');
     }
 
@@ -476,7 +505,7 @@
       if (!entry) {
         return;
       }
-      entry.term.write(stripMouseTracking(decodeBase64Utf8(payload)), () => {
+      entry.term.write(stripMouseTracking(decodeBase64Utf8(payload), entry), () => {
         if (!entry.hasVisibleContent && terminalHasVisibleContent(entry.term)) {
           entry.hasVisibleContent = true;
           send('visible:' + sessionId);
