@@ -186,13 +186,25 @@
       send('attachfile:' + sessionId + ':' + encodeBase64Utf8(fileName || 'attachment') + ':' + base64);
     }
 
+    // Large text pastes are attached as a file (like images above) rather than typed
+    // directly into the PTY — a single very large write to the ConPTY conin pipe on
+    // Windows can be silently truncated, so anything past this size goes through the
+    // same file-attachment path and is typed in as a short, safe file reference instead.
+    const PASTE_TEXT_THRESHOLD = 1000;
+
     /** Ctrl+V: an image on the clipboard is attached as a file; otherwise falls back to plain text paste. */
     function handlePaste(sessionId) {
       const pasteText = () => {
         navigator.clipboard.readText().then((text) => {
-          if (text && sessionId === activeSessionId) {
-            send('input:' + sessionId + ':' + encodeBase64Utf8(text));
+          if (!text || sessionId !== activeSessionId) {
+            return;
           }
+          if (text.length > PASTE_TEXT_THRESHOLD) {
+            const buffer = new TextEncoder().encode(text).buffer;
+            sendFileAttachment(sessionId, 'pasted-text.txt', buffer);
+            return;
+          }
+          send('input:' + sessionId + ':' + encodeBase64Utf8(text));
         });
       };
 
