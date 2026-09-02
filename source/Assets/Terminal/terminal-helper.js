@@ -94,10 +94,17 @@ function ensureNotificationHookConfigured() {
     // nothing: the literal, unexpanded "%CLAUDE_TAB_NOTIFY_PORT%" text was sent to curl
     // instead of the port number, so the notify server never matched a session.
     function commandFor(kind) {
+      // This hook is written to the user's global settings.json, so it fires for every
+      // Claude Code session on the machine — not just ones Claudium itself started. Outside
+      // Claudium's embedded terminal, CLAUDE_TAB_NOTIFY_PORT is unset, which previously sent
+      // curl to "http://127.0.0.1:/..." (empty port) and made it hang until --max-time
+      // timed out with a non-zero exit — surfaced to the user as a "Stop hook error" even
+      // though nothing was actually wrong. Guard on the port being set, and swallow any
+      // curl failure (server not reachable, etc.) with `|| true` so this stays best-effort.
       return (
-        'curl -s --max-time 2 "http://127.0.0.1:${CLAUDE_TAB_NOTIFY_PORT}/notify?session=${CLAUDE_TAB_SESSION_ID}&kind=' +
+        '[ -n "${CLAUDE_TAB_NOTIFY_PORT}" ] && curl -s --max-time 2 "http://127.0.0.1:${CLAUDE_TAB_NOTIFY_PORT}/notify?session=${CLAUDE_TAB_SESSION_ID}&kind=' +
         kind +
-        '" >/dev/null 2>&1 # ' +
+        '" >/dev/null 2>&1; true # ' +
         marker
       );
     }
