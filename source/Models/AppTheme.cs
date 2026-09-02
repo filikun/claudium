@@ -49,20 +49,23 @@ public static class AppThemes
         {
             Id = "dark_blue",
             Name = "Mörkblå",
-            PageBackgroundHex = "#272C44",
-            PanelBackgroundHex = "#1D2238",
-            AccentHex = "#3D8BFD",
-            TerminalBackgroundHex = "#272C44",
-            TerminalForegroundHex = "#E8ECF5",
+            PageBackgroundHex = "#E0151C2C",
+            PanelBackgroundHex = "#E01B2638",
+            AccentHex = "#4B8CFF",
+            // Matches PanelBackgroundHex (the top/bottom bars' surface color), not the
+            // darker page background — otherwise the terminal reads as a blacker "hole"
+            // sitting between two lighter blue-gray WinUI bars.
+            TerminalBackgroundHex = "#1B2638",
+            TerminalForegroundHex = "#D5DEEE",
             TerminalCursorHex = "#58D0AA",
-            TerminalSelectionRgba = "rgba(109, 125, 189, 0.32)"
+            TerminalSelectionRgba = "rgba(103, 146, 225, 0.28)"
         },
         new AppTheme
         {
             Id = "near_black",
             Name = "Kolsvart",
-            PageBackgroundHex = "#161616",
-            PanelBackgroundHex = "#101010",
+            PageBackgroundHex = "#E0161616",
+            PanelBackgroundHex = "#E0101010",
             AccentHex = "#3E76C4",
             TerminalBackgroundHex = "#141414",
             TerminalForegroundHex = "#E6E6E6",
@@ -73,8 +76,8 @@ public static class AppThemes
         {
             Id = "warm_amber",
             Name = "Bärnsten",
-            PageBackgroundHex = "#241C14",
-            PanelBackgroundHex = "#1B140F",
+            PageBackgroundHex = "#E0241C14",
+            PanelBackgroundHex = "#E01B140F",
             AccentHex = "#D97706",
             TerminalBackgroundHex = "#231A12",
             TerminalForegroundHex = "#F3E6D0",
@@ -85,8 +88,8 @@ public static class AppThemes
         {
             Id = "deep_teal",
             Name = "Djuphav",
-            PageBackgroundHex = "#0E2A2E",
-            PanelBackgroundHex = "#0A2124",
+            PageBackgroundHex = "#E00E2A2E",
+            PanelBackgroundHex = "#E00A2124",
             AccentHex = "#0F9488",
             TerminalBackgroundHex = "#0D2528",
             TerminalForegroundHex = "#DFF7F3",
@@ -97,8 +100,8 @@ public static class AppThemes
         {
             Id = "deep_violet",
             Name = "Violett",
-            PageBackgroundHex = "#241A33",
-            PanelBackgroundHex = "#1B1327",
+            PageBackgroundHex = "#E0241A33",
+            PanelBackgroundHex = "#E01B1327",
             AccentHex = "#7C5CFF",
             TerminalBackgroundHex = "#221930",
             TerminalForegroundHex = "#EFE7FA",

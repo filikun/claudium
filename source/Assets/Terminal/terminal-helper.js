@@ -234,16 +234,23 @@ function openSessionNow(sessionId, sessionRequest) {
     return;
   }
 
+  // Run Claude Code as a color-capable terminal even when the parent process inherited
+  // NO_COLOR from another shell. ANSI styling is then rendered by xterm unchanged.
+  const terminalEnv = Object.assign({}, process.env, {
+    TERM: 'xterm-256color',
+    COLORTERM: 'truecolor',
+    FORCE_COLOR: '1',
+    CLAUDE_TAB_SESSION_ID: sessionId,
+    CLAUDE_TAB_NOTIFY_PORT: String(notifyPort)
+  });
+  delete terminalEnv.NO_COLOR;
+
   const ptyProcess = nodePty.spawn('claude.exe', buildClaudeArgs(sessionRequest), {
     name: 'xterm-256color',
     cols: currentCols,
     rows: currentRows,
     cwd: sessionRequest.windowsPath,
-    env: Object.assign({}, process.env, {
-      TERM: 'xterm-256color',
-      CLAUDE_TAB_SESSION_ID: sessionId,
-      CLAUDE_TAB_NOTIFY_PORT: String(notifyPort)
-    })
+    env: terminalEnv
   });
 
   sessions.set(sessionId, { pty: ptyProcess });

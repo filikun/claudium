@@ -19,18 +19,19 @@
                 to background/accent roles; text and status colors (favorite star,
                 destructive red) stay constant across themes — see AppTheme.cs.
             -->
-            <SolidColorBrush x:Key="AppPageBrush" Color="#272C44" />
-            <SolidColorBrush x:Key="AppSurfaceBrush" Color="#1D2238" />
-            <SolidColorBrush x:Key="AppSurfaceOverlayBrush" Color="#CC1D2238" />
-            <SolidColorBrush x:Key="AppAccentBrush" Color="#3D8BFD" />
-            <SolidColorBrush x:Key="AppNeutralButtonBrush" Color="#39405E" />
+            <SolidColorBrush x:Key="AppPageBrush" Color="#E0151C2C" />
+            <SolidColorBrush x:Key="AppSurfaceBrush" Color="#E01B2638" />
+            <SolidColorBrush x:Key="AppSurfaceOverlayBrush" Color="#CC1B2638" />
+            <SolidColorBrush x:Key="AppAccentBrush" Color="#4B8CFF" />
+            <SolidColorBrush x:Key="AppNeutralButtonBrush" Color="#2A2E38" />
+            <SolidColorBrush x:Key="AppDividerBrush" Color="#1AFFFFFF" />
 
-            <SolidColorBrush x:Key="AppTextPrimaryBrush" Color="#F7F8FC" />
-            <SolidColorBrush x:Key="AppTextSecondaryBrush" Color="#9099BC" />
-            <SolidColorBrush x:Key="AppTextTertiaryBrush" Color="#BEC4D6" />
+            <SolidColorBrush x:Key="AppTextPrimaryBrush" Color="#F1F2F5" />
+            <SolidColorBrush x:Key="AppTextSecondaryBrush" Color="#B9C0CF" />
+            <SolidColorBrush x:Key="AppTextTertiaryBrush" Color="#959DAC" />
             <SolidColorBrush x:Key="AppFavoriteBrush" Color="#F5C451" />
-            <SolidColorBrush x:Key="AppDangerBrush" Color="#E38C8C" />
-            <SolidColorBrush x:Key="AppSuccessBrush" Color="#6FCF97" />
+            <SolidColorBrush x:Key="AppDangerBrush" Color="#E5484D" />
+            <SolidColorBrush x:Key="AppSuccessBrush" Color="#4FAE7A" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

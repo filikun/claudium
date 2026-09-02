@@ -68,7 +68,14 @@ public sealed class WorkspaceListItem
     public string PermissionMode { get; set; } = string.Empty;
     public string Model { get; set; } = string.Empty;
     public string Effort { get; set; } = string.Empty;
-    public Brush StartButtonBrush { get; set; } = new SolidColorBrush(Color.FromArgb(0xFF, 0x3D, 0x8B, 0xFD));
+    private static readonly Brush TransparentRowBrush = new SolidColorBrush(Color.FromArgb(0x00, 0x00, 0x00, 0x00));
+
+    /// <summary>True when this project's workspace matches the currently active session's — sidebar highlight only, unrelated to <see cref="ListView.SelectionMode"/> (which stays "None").</summary>
+    public bool IsActive { get; set; }
+    public Brush RowBackground { get; set; } = TransparentRowBrush;
+    public Brush IndicatorBrush { get; set; } = TransparentRowBrush;
+    public Brush TextBrush { get; set; } = TransparentRowBrush;
+
 }
 
 /// <summary>Shared option lists for the permission-mode/model/effort pickers (launcher row and live tab-bar switcher).</summary>
@@ -133,24 +140,36 @@ public sealed class TerminalTabItem
     private static readonly FontWeight NormalWeight = new() { Weight = 400 };
     private static readonly FontWeight SemiBoldWeight = new() { Weight = 600 };
 
+    /// <summary>Fixed dampened-blue selection look for the active row — same for every project, unlike <see cref="AccentBarBrush"/>.</summary>
+    internal static readonly Brush ActiveBackgroundBrush = new SolidColorBrush(ParseHex("#3A7BD5", 0x26));
+    internal static readonly Brush ActiveIndicatorBrush = new SolidColorBrush(ParseHex("#3A7BD5"));
+
     public string SessionId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
     public Brush Background { get; set; } = TransparentBrush;
+    public Brush OpenTabBackground { get; set; } = TransparentBrush;
+    public Brush OpenTabBorderBrush { get; set; } = TransparentBrush;
     public Brush AccentBarBrush { get; set; } = TransparentBrush;
+    public Brush SelectionIndicatorBrush { get; set; } = TransparentBrush;
+    public Brush TextBrush { get; set; } = TransparentBrush;
     public FontWeight NameFontWeight { get; set; } = NormalWeight;
     public Visibility StatusDotVisibility { get; set; } = Visibility.Collapsed;
     public Brush StatusDotBrush { get; set; } = TransparentBrush;
     public string StatusDotAnimation { get; set; } = "static";
     public string StatusDotTooltip { get; set; } = string.Empty;
 
-    /// <summary>Parses a "#RRGGBB" hex string into a <see cref="Color"/>, optionally overriding alpha.</summary>
-    public static Color ParseHex(string hex, byte alpha = 0xFF)
+    /// <summary>Parses #RRGGBB or #AARRGGBB, optionally overriding the source alpha.</summary>
+    public static Color ParseHex(string hex, byte? alpha = null)
     {
         string value = hex.TrimStart('#');
-        byte r = Convert.ToByte(value.Substring(0, 2), 16);
-        byte g = Convert.ToByte(value.Substring(2, 2), 16);
-        byte b = Convert.ToByte(value.Substring(4, 2), 16);
-        return Color.FromArgb(alpha, r, g, b);
+        bool includesAlpha = value.Length == 8;
+        int colorOffset = includesAlpha ? 2 : 0;
+        byte sourceAlpha = includesAlpha ? Convert.ToByte(value.Substring(0, 2), 16) : (byte)0xFF;
+        byte r = Convert.ToByte(value.Substring(colorOffset, 2), 16);
+        byte g = Convert.ToByte(value.Substring(colorOffset + 2, 2), 16);
+        byte b = Convert.ToByte(value.Substring(colorOffset + 4, 2), 16);
+        return Color.FromArgb(alpha ?? sourceAlpha, r, g, b);
     }
 
     public static TerminalTabItem For(
@@ -165,7 +184,20 @@ public sealed class TerminalTabItem
         {
             SessionId = sessionId,
             Name = name,
-            Background = isActive ? new SolidColorBrush(ParseHex(workspaceAccentHex, 0x30)) : TransparentBrush,
+            IsActive = isActive,
+            Background = isActive ? ActiveBackgroundBrush : TransparentBrush,
+            // The top strip deliberately has its own treatment: the active tab joins the
+            // terminal surface, while the sidebar keeps its compact blue selection row.
+            OpenTabBackground = isActive
+                ? (Brush)Application.Current.Resources["AppPageBrush"]
+                : TransparentBrush,
+            OpenTabBorderBrush = isActive
+                ? (Brush)Application.Current.Resources["AppDividerBrush"]
+                : TransparentBrush,
+            SelectionIndicatorBrush = isActive ? ActiveIndicatorBrush : TransparentBrush,
+            TextBrush = isActive
+                ? (Brush)Application.Current.Resources["AppTextPrimaryBrush"]
+                : (Brush)Application.Current.Resources["AppTextSecondaryBrush"],
             // Every tab shows its own project's accent color, not just the active one — dimmer
             // when inactive so the active tab still stands out, but never fully transparent,
             // so a tab's project stays visually identifiable after switching away from it.
@@ -327,6 +359,15 @@ public sealed partial class MainPage : Page
         Loaded -= MainPage_Loaded;
         _ = RunUpdateCheckAsync(isAutomatic: true);
         await InitializeTerminalAsync();
+
+        // First run: an empty sidebar with only a small "+" to discover isn't a great
+        // welcome, so open the add-project dialog once automatically instead of leaving
+        // the user to find it themselves. XamlRoot only becomes available once the page
+        // has loaded, so this can't run from the constructor.
+        if (_workspaces.Count == 0)
+        {
+            ShowLauncherForNewTab();
+        }
     }
 
     private void MainPage_Unloaded(object sender, RoutedEventArgs e)
@@ -575,24 +616,37 @@ public sealed partial class MainPage : Page
     private void RefreshWorkspaceList()
     {
         AppTheme appDefaultTheme = AppThemes.Resolve(_appSettings.ThemeId);
-        var startButtonBrush = new SolidColorBrush(TerminalTabItem.ParseHex(appDefaultTheme.AccentHex));
         IReadOnlyList<ThemeOption> themeOptions = WorkspaceListItem.BuildThemeOptions(appDefaultTheme.Name);
+
+        string? activeWorkspaceId = _activeSessionId is Guid activeId && _sessions.TryGetValue(activeId, out TerminalSessionInfo? activeSession)
+            ? activeSession.Profile.Id
+            : null;
+        // The active row is already communicated by its colored rail and background.
+        // Keep every project name readable instead of dimming inactive rows.
+        Brush textBrush = (Brush)Application.Current.Resources["AppTextPrimaryBrush"];
 
         List<WorkspaceListItem> items = _workspaces
             .OrderByDescending(w => w.IsFavorite)
             .ThenByDescending(w => w.LastUsedAt ?? w.CreatedAt)
-            .Select(w => new WorkspaceListItem
+            .Select(w =>
             {
-                Id = w.Id,
-                Name = w.Name,
-                Path = w.Path,
-                StarGlyph = w.IsFavorite ? "★" : "☆",
-                ThemeId = w.ThemeId ?? string.Empty,
-                ThemeOptions = themeOptions,
-                PermissionMode = w.PermissionMode ?? string.Empty,
-                Model = w.Model ?? string.Empty,
-                Effort = w.Effort ?? string.Empty,
-                StartButtonBrush = startButtonBrush
+                bool isActive = w.Id == activeWorkspaceId;
+                return new WorkspaceListItem
+                {
+                    Id = w.Id,
+                    Name = w.Name,
+                    Path = w.Path,
+                    StarGlyph = w.IsFavorite ? "★" : "☆",
+                    ThemeId = w.ThemeId ?? string.Empty,
+                    ThemeOptions = themeOptions,
+                    PermissionMode = w.PermissionMode ?? string.Empty,
+                    Model = w.Model ?? string.Empty,
+                    Effort = w.Effort ?? string.Empty,
+                    IsActive = isActive,
+                    RowBackground = isActive ? TerminalTabItem.ActiveBackgroundBrush : (Brush)new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)),
+                    IndicatorBrush = isActive ? TerminalTabItem.ActiveIndicatorBrush : (Brush)new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)),
+                    TextBrush = textBrush
+                };
             })
             .ToList();
 
@@ -932,9 +986,7 @@ public sealed partial class MainPage : Page
     /// </summary>
     private void ApplyActiveTheme()
     {
-        bool launcherVisible = LauncherPanel.Visibility == Visibility.Visible;
-
-        AppTheme theme = !launcherVisible && _activeSessionId is Guid activeId && _sessions.TryGetValue(activeId, out TerminalSessionInfo? activeSession)
+        AppTheme theme = _activeSessionId is Guid activeId && _sessions.TryGetValue(activeId, out TerminalSessionInfo? activeSession)
             ? ResolveWorkspaceTheme(activeSession.Profile)
             : AppThemes.Resolve(_appSettings.ThemeId);
 
@@ -1085,7 +1137,8 @@ public sealed partial class MainPage : Page
         RefreshWorkspaceList();
     }
 
-    private async void AddDirectoryButton_Click(object sender, RoutedEventArgs e)
+    /// <summary>Saves a picked folder as a persisted project — the dialog's "Lägg till mapp" action.</summary>
+    private async System.Threading.Tasks.Task AddProjectFromFolderAsync()
     {
         string? folderPath = await PickFolderAsync();
         if (string.IsNullOrWhiteSpace(folderPath))
@@ -1114,7 +1167,8 @@ public sealed partial class MainPage : Page
         RefreshWorkspaceList();
     }
 
-    private async void BrowseAndStartButton_Click(object sender, RoutedEventArgs e)
+    /// <summary>Starts an ad-hoc session in a picked folder without saving it — the dialog's "Starta från mapp..." action.</summary>
+    private async System.Threading.Tasks.Task StartFromFolderAsync()
     {
         string? folderPath = await PickFolderAsync();
         if (string.IsNullOrWhiteSpace(folderPath))
@@ -1139,18 +1193,39 @@ public sealed partial class MainPage : Page
         ShowLauncherForNewTab();
     }
 
-    private void CancelAddTabButton_Click(object sender, RoutedEventArgs e)
-    {
-        LauncherPanel.Visibility = Visibility.Collapsed;
-        ApplyActiveTheme();
-    }
+    /// <summary>
+    /// Shows the "Lägg till projekt" ContentDialog and runs whichever flow the user picked once
+    /// it closes (its Primary/Secondary/Close buttons are handled entirely by ContentDialog
+    /// itself, including Esc — no manual cancel handling needed).
+    /// </summary>
+    private bool _addProjectDialogOpen;
 
-    private void ShowLauncherForNewTab()
+    private async void ShowLauncherForNewTab()
     {
-        CancelAddTabButton.Visibility = _sessions.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        LauncherPanel.Visibility = Visibility.Visible;
-        ApplyActiveTheme();
-        RefreshWorkspaceList();
+        if (_addProjectDialogOpen)
+        {
+            return;
+        }
+
+        _addProjectDialogOpen = true;
+        try
+        {
+            AddProjectDialog.XamlRoot = XamlRoot;
+            ContentDialogResult result = await AddProjectDialog.ShowAsync();
+
+            if (result == ContentDialogResult.Primary)
+            {
+                await AddProjectFromFolderAsync();
+            }
+            else if (result == ContentDialogResult.Secondary)
+            {
+                await StartFromFolderAsync();
+            }
+        }
+        finally
+        {
+            _addProjectDialogOpen = false;
+        }
     }
 
     private async System.Threading.Tasks.Task<string?> PromptForNameAsync(string title, string initialValue)
@@ -1190,13 +1265,23 @@ public sealed partial class MainPage : Page
 
     private void LaunchProfile(WorkspaceProfile profile)
     {
+        TerminalSessionInfo? openSession = _sessions.Values.FirstOrDefault(session => session.Profile.Id == profile.Id);
+        if (openSession != null)
+        {
+            SwitchToTab(openSession.SessionId);
+            return;
+        }
+
+        if (_queuedProfile?.Id == profile.Id)
+        {
+            return;
+        }
+
         profile.LastUsedAt = DateTimeOffset.Now;
         if (_workspaces.Any(w => w.Id == profile.Id))
         {
             SaveWorkspaces();
         }
-
-        LauncherPanel.Visibility = Visibility.Collapsed;
 
         if (!_webReady)
         {
@@ -1209,6 +1294,13 @@ public sealed partial class MainPage : Page
 
     private void OpenNewTab(WorkspaceProfile profile)
     {
+        TerminalSessionInfo? openSession = _sessions.Values.FirstOrDefault(session => session.Profile.Id == profile.Id);
+        if (openSession != null)
+        {
+            SwitchToTab(openSession.SessionId);
+            return;
+        }
+
         Guid sessionId = Guid.NewGuid();
         var session = new TerminalSessionInfo
         {
@@ -1250,7 +1342,6 @@ public sealed partial class MainPage : Page
 
         _activeSessionId = sessionId;
         ApplyActiveTheme();
-        LauncherPanel.Visibility = Visibility.Collapsed;
         LoadingOverlay.Visibility = session.IsReady ? Visibility.Collapsed : Visibility.Visible;
 
         if (!string.IsNullOrEmpty(session.LastStatus))
@@ -1322,6 +1413,64 @@ public sealed partial class MainPage : Page
         }
     }
 
+    private void OpenSessionTabsListView_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is TerminalTabItem item &&
+            Guid.TryParse(item.SessionId, out Guid sessionId) &&
+            sessionId != _activeSessionId)
+        {
+            SwitchToTab(sessionId);
+        }
+    }
+
+    private void OpenSessionTabsView_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressTabSelectionEvent || OpenSessionTabsView.SelectedItem is not TerminalTabItem item)
+        {
+            return;
+        }
+
+        if (Guid.TryParse(item.SessionId, out Guid sessionId) && sessionId != _activeSessionId)
+        {
+            SwitchToTab(sessionId);
+        }
+    }
+
+    private void OpenSessionTabsView_AddTabButtonClick(TabView sender, object args)
+    {
+        ShowLauncherForNewTab();
+    }
+
+    private void OpenSessionTabsView_TabCloseRequested(TabView sender, TabViewTabCloseRequestedEventArgs args)
+    {
+        if (args.Item is TerminalTabItem item && Guid.TryParse(item.SessionId, out Guid sessionId))
+        {
+            CloseTab(sessionId);
+        }
+    }
+
+    /// <summary>Entry points used by the title-bar controls in <see cref="MainWindow"/>.</summary>
+    public void ActivateTabFromTitleBar(string sessionIdText)
+    {
+        if (Guid.TryParse(sessionIdText, out Guid sessionId) && sessionId != _activeSessionId)
+        {
+            SwitchToTab(sessionId);
+        }
+    }
+
+    public void CloseTabFromTitleBar(string sessionIdText)
+    {
+        if (Guid.TryParse(sessionIdText, out Guid sessionId))
+        {
+            CloseTab(sessionId);
+        }
+    }
+
+    public void StartNewTabFromTitleBar()
+    {
+        ShowLauncherForNewTab();
+    }
+
     private void RefreshTabStrip()
     {
         List<TerminalTabItem> items = _sessionOrder
@@ -1346,7 +1495,59 @@ public sealed partial class MainPage : Page
             _activeSessionId.HasValue && i.SessionId == _activeSessionId.Value.ToString("N"));
         _suppressTabSelectionEvent = false;
 
+        (App.CurrentWindow as MainWindow)?.UpdateTitleBarTabs(items);
+
         TabStripBar.Visibility = items.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        UpdateActiveSessionChrome();
+    }
+
+    /// <summary>
+    /// Refreshes the right panel's slim top context row and bottom status bar to reflect
+    /// whichever session is currently active (or the empty state when none is). Called from
+    /// <see cref="RefreshTabStrip"/> so it stays in sync with every open/switch/close/rename.
+    /// </summary>
+    private void UpdateActiveSessionChrome()
+    {
+        TerminalSessionInfo? activeSession = _activeSessionId is Guid activeId && _sessions.TryGetValue(activeId, out TerminalSessionInfo? session)
+            ? session
+            : null;
+
+        // The tab strip itself lives in the native title bar now, but this row still hosts
+        // the attach-file/session-settings/close-session actions for the active session.
+        ActiveContextRow.Visibility = activeSession != null ? Visibility.Visible : Visibility.Collapsed;
+        EmptyRightPane.Visibility = activeSession != null ? Visibility.Collapsed : Visibility.Visible;
+
+        if (activeSession == null)
+        {
+            ActiveSessionNameText.Text = string.Empty;
+            ActiveStatusText.Text = string.Empty;
+            ActiveStatusDot.Fill = (Brush)Application.Current.Resources["AppTextTertiaryBrush"];
+            ContextStatusDot.Fill = (Brush)Application.Current.Resources["AppTextTertiaryBrush"];
+            UsageOverlay.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        ActiveSessionNameText.Text = activeSession.Profile.Name;
+
+        (Brush dotBrush, string label) = activeSession.Status switch
+        {
+            SessionActivityStatus.Working => ((Brush)new SolidColorBrush(TerminalTabItem.ParseHex("#7EDBFF")), "Arbetar"),
+            SessionActivityStatus.Waiting => ((Brush)Application.Current.Resources["AppFavoriteBrush"], "Väntar på svar"),
+            _ => ((Brush)Application.Current.Resources["AppSuccessBrush"], "Klar")
+        };
+
+        ActiveStatusDot.Fill = dotBrush;
+        ActiveStatusText.Text = label;
+        ContextStatusDot.Fill = dotBrush;
+        UsageOverlay.Visibility = Visibility.Visible;
+    }
+
+    private void CloseActiveSessionButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_activeSessionId is Guid sessionId)
+        {
+            CloseTab(sessionId);
+        }
     }
 
     /// <summary>
@@ -1423,8 +1624,6 @@ public sealed partial class MainPage : Page
         UsageOverlay.Visibility = Visibility.Collapsed;
         StatusOverlay.Visibility = Visibility.Collapsed;
         LoadingOverlay.Visibility = Visibility.Collapsed;
-        CancelAddTabButton.Visibility = Visibility.Collapsed;
-        LauncherPanel.Visibility = Visibility.Visible;
         RefreshWorkspaceList();
     }
 
@@ -1704,8 +1903,6 @@ public sealed partial class MainPage : Page
             UpdateStatus("Claude-processen avslutades oväntat.");
             StatusOverlay.Visibility = Visibility.Visible;
             UsageOverlay.Visibility = Visibility.Collapsed;
-            CancelAddTabButton.Visibility = Visibility.Collapsed;
-            LauncherPanel.Visibility = Visibility.Visible;
             RefreshTabStrip();
             RefreshWorkspaceList();
         });
@@ -1815,7 +2012,7 @@ public sealed partial class MainPage : Page
             bool ok = root.TryGetProperty("ok", out JsonElement okElement) && okElement.ValueKind == JsonValueKind.True;
             if (!ok)
             {
-                UsageOverlay.Visibility = Visibility.Collapsed;
+                ShowUsageUnavailable();
                 return;
             }
 
@@ -1823,23 +2020,25 @@ public sealed partial class MainPage : Page
             UsageEntry? allModels = ParseUsageEntry(root, "all_models");
             if (session == null && allModels == null)
             {
-                UsageOverlay.Visibility = Visibility.Collapsed;
+                ShowUsageUnavailable();
                 return;
             }
 
             UsageEntry? visibleEntry = session ?? allModels;
             if (visibleEntry != null)
             {
-                SessionArcPath.Data = BuildPieGeometry(ClampPercent(visibleEntry.Percent));
+                SetUsageProgress(visibleEntry.Percent ?? 0);
+                UsageText.Text = FormatPercent(visibleEntry.Percent);
                 string tooltip = BuildCombinedUsageTooltip(session, allModels);
-                ToolTipService.SetToolTip(SessionArcPath, tooltip);
-                ToolTipService.SetToolTip(SessionUsageIcon, tooltip);
+                ToolTipService.SetToolTip(UsageProgressTrack, tooltip);
+                ToolTipService.SetToolTip(UsageText, tooltip);
             }
             else
             {
-                SessionArcPath.Data = null;
-                ToolTipService.SetToolTip(SessionArcPath, null);
-                ToolTipService.SetToolTip(SessionUsageIcon, null);
+                SetUsageProgress(0);
+                UsageText.Text = string.Empty;
+                ToolTipService.SetToolTip(UsageProgressTrack, null);
+                ToolTipService.SetToolTip(UsageText, null);
             }
 
             _lastUsageUpdatedAt = DateTimeOffset.Now;
@@ -1848,8 +2047,22 @@ public sealed partial class MainPage : Page
         }
         catch
         {
-            UsageOverlay.Visibility = Visibility.Collapsed;
+            ShowUsageUnavailable();
         }
+    }
+
+    private void ShowUsageUnavailable()
+    {
+        SetUsageProgress(0);
+        UsageText.Text = "-";
+        ToolTipService.SetToolTip(UsageProgressTrack, "Context usage är inte tillgänglig ännu.");
+        ToolTipService.SetToolTip(UsageText, "Context usage är inte tillgänglig ännu.");
+        UsageOverlay.Visibility = _activeSessionId is Guid ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void SetUsageProgress(double percent)
+    {
+        UsageProgressFill.Width = 150 * ClampPercent(percent) / 100;
     }
 
     private void RefreshUsageRelativeTimes()
@@ -1860,8 +2073,8 @@ public sealed partial class MainPage : Page
         }
 
         string updated = FormatUpdatedAt(_lastUsageUpdatedAt.Value);
-        ToolTipService.SetToolTip(SessionArcPath, AppendUpdatedToTooltip(ToolTipService.GetToolTip(SessionArcPath), updated));
-        ToolTipService.SetToolTip(SessionUsageIcon, AppendUpdatedToTooltip(ToolTipService.GetToolTip(SessionUsageIcon), updated));
+        ToolTipService.SetToolTip(UsageProgressTrack, AppendUpdatedToTooltip(ToolTipService.GetToolTip(UsageProgressTrack), updated));
+        ToolTipService.SetToolTip(UsageText, AppendUpdatedToTooltip(ToolTipService.GetToolTip(UsageText), updated));
     }
 
     private static UsageEntry? ParseUsageEntry(JsonElement root, string propertyName)
@@ -1999,63 +2212,6 @@ public sealed partial class MainPage : Page
         }
 
         return baseText + "\n" + updated;
-    }
-
-    private static Geometry? BuildPieGeometry(double percent)
-    {
-        if (percent <= 0)
-        {
-            return null;
-        }
-
-        const double size = 18;
-        const double center = size / 2;
-        const double radius = 9;
-
-        double clamped = Math.Max(0, Math.Min(100, percent));
-        double sweepAngle = Math.Min(359.99, 360 * (clamped / 100.0));
-        double startAngle = -90;
-        double endAngle = startAngle + sweepAngle;
-
-        Windows.Foundation.Point startPoint = PointOnCircle(center, center, radius, startAngle);
-        Windows.Foundation.Point endPoint = PointOnCircle(center, center, radius, endAngle);
-
-        var figure = new PathFigure
-        {
-            StartPoint = new Windows.Foundation.Point(center, center),
-            IsClosed = true,
-            IsFilled = true
-        };
-
-        figure.Segments.Add(new LineSegment
-        {
-            Point = startPoint
-        });
-
-        figure.Segments.Add(new ArcSegment
-        {
-            Point = endPoint,
-            Size = new Windows.Foundation.Size(radius, radius),
-            SweepDirection = SweepDirection.Clockwise,
-            IsLargeArc = sweepAngle >= 180
-        });
-
-        figure.Segments.Add(new LineSegment
-        {
-            Point = new Windows.Foundation.Point(center, center)
-        });
-
-        var geometry = new PathGeometry();
-        geometry.Figures.Add(figure);
-        return geometry;
-    }
-
-    private static Windows.Foundation.Point PointOnCircle(double centerX, double centerY, double radius, double degrees)
-    {
-        double radians = Math.PI * degrees / 180.0;
-        return new Windows.Foundation.Point(
-            centerX + radius * Math.Cos(radians),
-            centerY + radius * Math.Sin(radians));
     }
 
     private static string EscapeForJavaScript(string value)

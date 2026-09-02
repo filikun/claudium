@@ -8,540 +8,886 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     Background="{StaticResource AppPageBrush}"
     mc:Ignorable="d">
+    <Page.Resources>
+        <!-- SymbolIcon ignores a surrounding Button's FontSize, so size these directly. -->
+        <Style x:Key="CompactActionSymbolIcon" TargetType="SymbolIcon">
+            <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+            <Setter Property="RenderTransform">
+                <Setter.Value>
+                    <ScaleTransform ScaleX="0.75" ScaleY="0.75" />
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="CompactAddSymbolIcon" TargetType="SymbolIcon">
+            <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+            <Setter Property="RenderTransform">
+                <Setter.Value>
+                    <ScaleTransform ScaleX="0.70" ScaleY="0.70" />
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Page.Resources>
     <Grid x:Name="RootGrid" Background="{StaticResource AppPageBrush}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="340" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <Grid x:Name="TabStripBar"
-              Grid.Row="0"
-              Background="{StaticResource AppSurfaceBrush}"
-              Padding="8,4"
-              ColumnSpacing="8"
-              Visibility="Collapsed">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
+        <!-- ============================== Sidebar ============================== -->
+        <Border Grid.Row="0"
+                Grid.Column="0"
+                Background="{StaticResource AppSurfaceBrush}"
+                BorderBrush="{StaticResource AppDividerBrush}"
+                BorderThickness="0,0,1,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-            <ListView x:Name="TabStripListView"
-                      Grid.Column="0"
-                      Background="Transparent"
-                      SelectionMode="Single"
-                      SelectionChanged="TabStripListView_SelectionChanged">
-                <!--
-                    Each tab already paints its own background/selected look via the
-                    Border in the DataTemplate below. Without these overrides, WinUI's
-                    default ListViewItem template still draws its own square
-                    hover/selected/pressed background behind that Border, which peeks out
-                    around its rounded top corners as a mismatched patch of color.
-                -->
-                <ListView.Resources>
-                    <SolidColorBrush x:Key="ListViewItemBackground" Color="Transparent" />
-                    <SolidColorBrush x:Key="ListViewItemBackgroundPointerOver" Color="Transparent" />
-                    <SolidColorBrush x:Key="ListViewItemBackgroundPressed" Color="Transparent" />
-                    <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="Transparent" />
-                    <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="Transparent" />
-                    <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="Transparent" />
-                </ListView.Resources>
-                <ListView.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <StackPanel Orientation="Horizontal" />
-                    </ItemsPanelTemplate>
-                </ListView.ItemsPanel>
-                <ListView.ItemContainerStyle>
-                    <Style TargetType="ListViewItem">
-                        <Setter Property="Padding" Value="0" />
-                        <Setter Property="Margin" Value="0,0,4,0" />
-                    </Style>
-                </ListView.ItemContainerStyle>
-                <ListView.ItemTemplate>
-                    <DataTemplate x:DataType="local:TerminalTabItem">
-                        <Border Padding="12,6"
-                                Background="{x:Bind Background}"
-                                CornerRadius="8,8,0,0"
-                                BorderThickness="0,0,0,2"
-                                BorderBrush="{x:Bind AccentBarBrush}">
-                            <Grid ColumnSpacing="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-
-                                <Ellipse Grid.Column="0"
-                                         Width="7"
-                                         Height="7"
-                                         Fill="{x:Bind StatusDotBrush}"
-                                         VerticalAlignment="Center"
-                                         Visibility="{x:Bind StatusDotVisibility}"
-                                         Tag="{x:Bind StatusDotAnimation}"
-                                         Loaded="StatusDot_Loaded"
-                                         ToolTipService.ToolTip="{x:Bind StatusDotTooltip}" />
-
-                                <TextBlock Grid.Column="1"
-                                           Text="{x:Bind Name}"
-                                           Foreground="{StaticResource AppTextPrimaryBrush}"
-                                           FontSize="13"
-                                           FontWeight="{x:Bind NameFontWeight}"
-                                           VerticalAlignment="Center"
-                                           MaxWidth="160"
-                                           TextTrimming="CharacterEllipsis" />
-
-                                <Button Grid.Column="2"
-                                        Content="&#x2715;"
-                                        Tag="{x:Bind SessionId}"
-                                        Click="CloseTabButton_Click"
-                                        Background="Transparent"
-                                        Foreground="{StaticResource AppTextSecondaryBrush}"
-                                        BorderThickness="0"
-                                        Padding="4,0"
-                                        FontSize="11"
-                                        ToolTipService.ToolTip="Stäng flik" />
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
-
-            <Button x:Name="SessionSettingsButton"
-                    Grid.Column="1"
-                    Content="&#x2699;"
-                    Background="Transparent"
-                    Foreground="{StaticResource AppTextTertiaryBrush}"
-                    BorderThickness="0"
-                    FontSize="16"
-                    VerticalAlignment="Center"
-                    Padding="8,4"
-                    ToolTipService.ToolTip="Byt permission mode, modell eller effort för denna session">
-                <Button.Flyout>
-                    <Flyout x:Name="SessionSettingsFlyout" Placement="Bottom" Opening="SessionSettingsFlyout_Opening">
-                        <Flyout.FlyoutPresenterStyle>
-                            <Style TargetType="FlyoutPresenter">
-                                <Setter Property="Background" Value="{StaticResource AppSurfaceBrush}" />
-                                <Setter Property="CornerRadius" Value="10" />
-                            </Style>
-                        </Flyout.FlyoutPresenterStyle>
-                        <StackPanel Spacing="10" MinWidth="200">
-                            <TextBlock Text="Claude-inställningar (denna session)" Foreground="{StaticResource AppTextPrimaryBrush}" FontSize="13" FontWeight="SemiBold" TextWrapping="WrapWholeWords" />
-
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="Modell" Foreground="{StaticResource AppTextSecondaryBrush}" FontSize="11" />
-                                <ComboBox x:Name="SessionModelComboBox"
-                                          SelectedValuePath="Tag"
-                                          SelectionChanged="SessionModelComboBox_SelectionChanged"
-                                          HorizontalAlignment="Stretch">
-                                    <ComboBoxItem Content="Sonnet" Tag="sonnet" />
-                                    <ComboBoxItem Content="Opus" Tag="opus" />
-                                    <ComboBoxItem Content="Fable" Tag="fable" />
-                                </ComboBox>
-                            </StackPanel>
-
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="Effort" Foreground="{StaticResource AppTextSecondaryBrush}" FontSize="11" />
-                                <ComboBox x:Name="SessionEffortComboBox"
-                                          SelectedValuePath="Tag"
-                                          SelectionChanged="SessionEffortComboBox_SelectionChanged"
-                                          HorizontalAlignment="Stretch">
-                                    <ComboBoxItem Content="Low" Tag="low" />
-                                    <ComboBoxItem Content="Medium" Tag="medium" />
-                                    <ComboBoxItem Content="High" Tag="high" />
-                                    <ComboBoxItem Content="X-High" Tag="xhigh" />
-                                    <ComboBoxItem Content="Max" Tag="max" />
-                                </ComboBox>
-                            </StackPanel>
-                        </StackPanel>
-                    </Flyout>
-                </Button.Flyout>
-            </Button>
-
-            <Button x:Name="AttachFileButton"
-                    Grid.Column="2"
-                    Content="&#x1F4CE;"
-                    Click="AttachFileButton_Click"
-                    Background="{StaticResource AppNeutralButtonBrush}"
-                    Foreground="{StaticResource AppTextPrimaryBrush}"
-                    CornerRadius="6"
-                    Padding="10,4"
-                    VerticalAlignment="Center"
-                    ToolTipService.ToolTip="Bifoga fil till Claude" />
-
-            <Button x:Name="AddTabButton"
-                    Grid.Column="3"
-                    Content="+"
-                    Click="AddTabButton_Click"
-                    Background="{StaticResource AppAccentBrush}"
-                    Foreground="White"
-                    CornerRadius="6"
-                    Padding="14,4"
-                    VerticalAlignment="Center"
-                    ToolTipService.ToolTip="Ny flik" />
-        </Grid>
-
-        <Grid Grid.Row="1">
-            <WebView2 x:Name="TerminalView"
-                      HorizontalAlignment="Stretch"
-                      VerticalAlignment="Stretch"
-                      Margin="0" />
-
-            <Border x:Name="UsageOverlay"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Bottom"
-                    Margin="0,0,18,8"
-                    Padding="0"
-                    Background="Transparent"
-                    BorderThickness="0"
-                    Visibility="Collapsed">
-                <Grid x:Name="SessionUsageIcon"
-                      Width="18"
-                      Height="18">
-                    <Ellipse Fill="{StaticResource AppNeutralButtonBrush}" />
-                    <Path x:Name="SessionArcPath"
-                          Fill="#7EDBFF"
-                          Stretch="None" />
-                </Grid>
-            </Border>
-
-            <Border x:Name="StatusOverlay"
-                    HorizontalAlignment="Left"
-                    VerticalAlignment="Bottom"
-                    Margin="24"
-                    Padding="16,12"
-                    Visibility="Collapsed"
-                    Background="{StaticResource AppSurfaceOverlayBrush}"
-                    CornerRadius="12">
-                <StackPanel Spacing="4">
-                    <TextBlock Text="Claude Code"
-                               Foreground="{StaticResource AppTextPrimaryBrush}"
-                               FontSize="16"
-                               FontWeight="SemiBold" />
-                    <TextBlock x:Name="StatusText"
-                               Text="Startar terminalen..."
-                               Foreground="{StaticResource AppTextTertiaryBrush}"
-                               FontSize="12"
-                               TextWrapping="WrapWholeWords" />
-                </StackPanel>
-            </Border>
-
-            <!--
-                Full-bleed cover, not just a floating spinner — the terminal underneath
-                still renders while Claude Code starts (including xterm's own scrollbar
-                gutter), so anything less than opaque and full-size lets that peek out
-                around the edges during the brief loading window.
-            -->
-            <Grid x:Name="LoadingOverlay"
-                  Background="{StaticResource AppPageBrush}"
-                  Visibility="Collapsed"
-                  IsHitTestVisible="False">
-                <StackPanel HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            Spacing="12">
-                    <ProgressRing IsActive="True"
-                                  Width="40"
-                                  Height="40"
-                                  Foreground="#7EDBFF" />
-                    <TextBlock Text="Startar Claude Code..."
-                               Foreground="{StaticResource AppTextTertiaryBrush}"
-                               FontSize="13"
-                               HorizontalAlignment="Center" />
-                </StackPanel>
-            </Grid>
-
-            <!-- Launcher: shown until a working directory is picked (or when adding another tab). -->
-            <Grid x:Name="LauncherPanel" Background="{StaticResource AppPageBrush}">
-                <Grid MaxWidth="640" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-
-                    <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,20">
-                        <TextBlock Text="Claude Code"
-                                   Foreground="{StaticResource AppTextPrimaryBrush}"
-                                   FontSize="26"
-                                   FontWeight="SemiBold" />
-                        <TextBlock Text="Välj en sparad katalog eller starta i en ny mapp."
-                                   Foreground="{StaticResource AppTextSecondaryBrush}"
-                                   FontSize="13" />
-                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,10,0,0" VerticalAlignment="Center">
-                            <TextBlock Text="Tema:"
-                                       Foreground="{StaticResource AppTextSecondaryBrush}"
-                                       FontSize="12"
+                <!-- Scrollable projects and recent sessions. App identity already lives in the title bar. -->
+                <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Spacing="0" Padding="0,8,0,12">
+                        <Grid Padding="20,16,14,10" ColumnSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="Projects"
+                                       Foreground="{StaticResource AppTextPrimaryBrush}"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"
                                        VerticalAlignment="Center" />
-                            <ComboBox x:Name="AppThemeComboBox"
-                                      SelectedValuePath="Tag"
-                                      SelectionChanged="AppThemeComboBox_SelectionChanged"
-                                      FontSize="12"
-                                      MinWidth="140">
-                                <ComboBoxItem Content="Mörkblå" Tag="dark_blue" />
-                                <ComboBoxItem Content="Kolsvart" Tag="near_black" />
-                                <ComboBoxItem Content="Bärnsten" Tag="warm_amber" />
-                                <ComboBoxItem Content="Djuphav" Tag="deep_teal" />
-                                <ComboBoxItem Content="Violett" Tag="deep_violet" />
-                            </ComboBox>
-                            <Button x:Name="CheckForUpdatesButton"
-                                    Content="Sök efter uppdateringar"
-                                    Click="CheckForUpdatesButton_Click"
-                                    Background="{StaticResource AppNeutralButtonBrush}"
-                                    Foreground="{StaticResource AppTextPrimaryBrush}"
-                                    CornerRadius="8"
-                                    Padding="12,6"
-                                    FontSize="12"
-                                    Margin="8,0,0,0" />
-                        </StackPanel>
-                        <Border x:Name="UpdateStatusChip"
-                                Background="{StaticResource AppSurfaceBrush}"
-                                CornerRadius="6"
-                                Padding="10,6"
-                                Margin="0,6,0,0"
-                                HorizontalAlignment="Left"
-                                Visibility="Collapsed">
-                            <Border.Transitions>
-                                <TransitionCollection>
-                                    <ContentThemeTransition />
-                                </TransitionCollection>
-                            </Border.Transitions>
-                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                <ProgressRing x:Name="UpdateProgressRing"
-                                              IsActive="False"
-                                              Width="13"
-                                              Height="13"
-                                              Foreground="{StaticResource AppTextSecondaryBrush}" />
-                                <FontIcon x:Name="UpdateStatusIcon"
-                                          FontFamily="Segoe Fluent Icons"
-                                          FontSize="12"
-                                          Glyph="&#xE946;"
-                                          Foreground="{StaticResource AppTextSecondaryBrush}"
-                                          Visibility="Collapsed" />
-                                <TextBlock x:Name="UpdateStatusText"
-                                           Foreground="{StaticResource AppTextSecondaryBrush}"
-                                           FontSize="11"
-                                           TextWrapping="WrapWholeWords"
-                                           VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Border>
+                            <Button Grid.Column="1"
+                                    Width="28"
+                                    Height="28"
+                                    Padding="0"
+                                    FontSize="14"
+                                    Click="AddTabButton_Click"
+                                    Background="Transparent"
+                                    Foreground="{StaticResource AppTextSecondaryBrush}"
+                                    BorderThickness="0"
+                                    CornerRadius="4"
+                                    ToolTipService.ToolTip="Lägg till projekt">
+                                <SymbolIcon Symbol="Add" Style="{StaticResource CompactAddSymbolIcon}" />
+                            </Button>
+                        </Grid>
+
+                        <TextBlock x:Name="EmptyStateText"
+                                   Text="Inga sparade kataloger ännu."
+                                   Foreground="{StaticResource AppTextTertiaryBrush}"
+                                   FontSize="13"
+                                   Margin="16,2,16,8"
+                                   TextWrapping="WrapWholeWords"
+                                   Visibility="Collapsed" />
+
+                        <ListView x:Name="WorkspaceListView"
+                                  Background="Transparent"
+                                  SelectionMode="None"
+                                  IsItemClickEnabled="False">
+                            <ListView.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Vertical" />
+                                </ItemsPanelTemplate>
+                            </ListView.ItemsPanel>
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="Padding" Value="0" />
+                                    <Setter Property="Margin" Value="10,2" />
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="local:WorkspaceListItem">
+                                    <Grid Background="{x:Bind RowBackground}"
+                                          CornerRadius="6"
+                                          Padding="10,8"
+                                          ColumnSpacing="2"
+                                          >
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="4" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <Rectangle Grid.Column="0"
+                                                   Width="3"
+                                                   Fill="{x:Bind IndicatorBrush}"
+                                                   RadiusX="1.5"
+                                                   RadiusY="1.5"
+                                                   HorizontalAlignment="Left" />
+
+                                        <Button Grid.Column="1"
+                                                Content="{x:Bind StarGlyph}"
+                                                Tag="{x:Bind Id}"
+                                                Click="FavoriteToggle_Click"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                Foreground="{StaticResource AppFavoriteBrush}"
+                                                FontSize="13"
+                                                Padding="5"
+                                                ToolTipService.ToolTip="Markera som favorit" />
+
+                                        <!-- The project name is the primary action. Keeping this as a
+                                             sibling button avoids nesting controls inside one another. -->
+                                        <Button Grid.Column="2"
+                                                Tag="{x:Bind Id}"
+                                                Click="StartWorkspace_Click"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Left"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                Padding="6,3"
+                                                CornerRadius="4"
+                                                ToolTipService.ToolTip="Starta ny session">
+                                            <StackPanel VerticalAlignment="Center" Spacing="1">
+                                                <TextBlock Text="{x:Bind Name}"
+                                                           Foreground="{x:Bind TextBrush}"
+                                                           FontSize="15"
+                                                           FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{x:Bind Path}"
+                                                           Foreground="{StaticResource AppTextSecondaryBrush}"
+                                                           FontSize="13"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                        </Button>
+
+                                        <!-- Settings is deliberately secondary; starting a project is
+                                             done by clicking its name rather than hunting for an icon. -->
+                                        <Button x:Name="RowSettingsButton"
+                                                Grid.Column="3"
+                                                Width="22"
+                                                Height="22"
+                                                Padding="0"
+                                                FontSize="9"
+                                                Opacity="0.8"
+                                                Tag="{x:Bind Id}"
+                                                Background="Transparent"
+                                                Foreground="{StaticResource AppTextSecondaryBrush}"
+                                                BorderThickness="0"
+                                                CornerRadius="14"
+                                                AutomationProperties.Name="{x:Bind Name}"
+                                                ToolTipService.ToolTip="Claude-inställningar för detta projekt">
+                                            <SymbolIcon Symbol="Setting" Style="{StaticResource CompactActionSymbolIcon}" />
+                                            <Button.Flyout>
+                                                <Flyout Placement="Bottom">
+                                                    <Flyout.FlyoutPresenterStyle>
+                                                        <Style TargetType="FlyoutPresenter">
+                                                            <Setter Property="Background" Value="{StaticResource AppSurfaceBrush}" />
+                                                            <Setter Property="CornerRadius" Value="8" />
+                                                        </Style>
+                                                    </Flyout.FlyoutPresenterStyle>
+                                                    <StackPanel Spacing="10" MinWidth="200">
+                                                        <TextBlock Text="Claude-inställningar" Foreground="{StaticResource AppTextPrimaryBrush}" FontSize="13" FontWeight="SemiBold" />
+
+                                                        <StackPanel Spacing="4">
+                                                            <TextBlock Text="Permission mode" Foreground="{StaticResource AppTextSecondaryBrush}" FontSize="12" />
+                                                            <ComboBox Tag="{x:Bind Id}"
+                                                                      AutomationProperties.Name="Permission mode"
+                                                                      ItemsSource="{x:Bind PermissionModeOptions}"
+                                                                      DisplayMemberPath="Name"
+                                                                      SelectedValuePath="Id"
+                                                                      SelectedValue="{x:Bind PermissionMode, Mode=OneWay}"
+                                                                      SelectionChanged="WorkspacePermissionModeComboBox_SelectionChanged"
+                                                                      HorizontalAlignment="Stretch" />
+                                                        </StackPanel>
+
+                                                        <StackPanel Spacing="4">
+                                                            <TextBlock Text="Modell" Foreground="{StaticResource AppTextSecondaryBrush}" FontSize="12" />
+                                                            <ComboBox Tag="{x:Bind Id}"
+                                                                      AutomationProperties.Name="Modell"
+                                                                      ItemsSource="{x:Bind ModelOptions}"
+                                                                      DisplayMemberPath="Name"
+                                                                      SelectedValuePath="Id"
+                                                                      SelectedValue="{x:Bind Model, Mode=OneWay}"
+                                                                      SelectionChanged="WorkspaceModelComboBox_SelectionChanged"
+                                                                      HorizontalAlignment="Stretch" />
+                                                        </StackPanel>
+
+                                                        <StackPanel Spacing="4">
+                                                            <TextBlock Text="Effort" Foreground="{StaticResource AppTextSecondaryBrush}" FontSize="12" />
+                                                            <ComboBox Tag="{x:Bind Id}"
+                                                                      AutomationProperties.Name="Effort"
+                                                                      ItemsSource="{x:Bind EffortOptions}"
+                                                                      DisplayMemberPath="Name"
+                                                                      SelectedValuePath="Id"
+                                                                      SelectedValue="{x:Bind Effort, Mode=OneWay}"
+                                                                      SelectionChanged="WorkspaceEffortComboBox_SelectionChanged"
+                                                                      HorizontalAlignment="Stretch" />
+                                                        </StackPanel>
+
+                                                        <StackPanel Spacing="4">
+                                                            <TextBlock Text="Tema" Foreground="{StaticResource AppTextSecondaryBrush}" FontSize="12" />
+                                                            <ComboBox Tag="{x:Bind Id}"
+                                                                      AutomationProperties.Name="Tema"
+                                                                      ItemsSource="{x:Bind ThemeOptions}"
+                                                                      DisplayMemberPath="Name"
+                                                                      SelectedValuePath="Id"
+                                                                      SelectedValue="{x:Bind ThemeId, Mode=OneWay}"
+                                                                      SelectionChanged="WorkspaceThemeComboBox_SelectionChanged"
+                                                                      HorizontalAlignment="Stretch" />
+                                                        </StackPanel>
+
+                                                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                                                            <Button Content="Byt namn"
+                                                                    Tag="{x:Bind Id}"
+                                                                    Click="RenameWorkspace_Click"
+                                                                    Background="Transparent"
+                                                                    Foreground="{StaticResource AppTextSecondaryBrush}"
+                                                                    BorderThickness="0"
+                                                                    Padding="0" />
+                                                            <Button Content="Ta bort"
+                                                                    Tag="{x:Bind Id}"
+                                                                    Click="RemoveWorkspace_Click"
+                                                                    Background="Transparent"
+                                                                    Foreground="{StaticResource AppDangerBrush}"
+                                                                    BorderThickness="0"
+                                                                    Padding="0" />
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </Flyout>
+                                            </Button.Flyout>
+                                        </Button>
+
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+
+                        <Grid x:Name="TabStripBar" Padding="0,10,0,0" Visibility="Collapsed">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0"
+                                       Text="Recent sessions"
+                                       Foreground="{StaticResource AppTextPrimaryBrush}"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"
+                                       Padding="16,4,16,6" />
+
+                            <ListView x:Name="TabStripListView"
+                                      Grid.Row="1"
+                                      Background="Transparent"
+                                      SelectionMode="Single"
+                                      SelectionChanged="TabStripListView_SelectionChanged">
+                                <!--
+                                    Each row already paints its own background/selected look via the
+                                    Border in the DataTemplate below. Without these overrides, WinUI's
+                                    default ListViewItem template still draws its own square
+                                    hover/selected/pressed background behind that Border, which peeks out
+                                    around its rounded corners as a mismatched patch of color.
+                                -->
+                                <ListView.Resources>
+                                    <SolidColorBrush x:Key="ListViewItemBackground" Color="Transparent" />
+                                    <SolidColorBrush x:Key="ListViewItemBackgroundPointerOver" Color="Transparent" />
+                                    <SolidColorBrush x:Key="ListViewItemBackgroundPressed" Color="Transparent" />
+                                    <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="Transparent" />
+                                    <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="Transparent" />
+                                    <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="Transparent" />
+                                </ListView.Resources>
+                                <ListView.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Vertical" />
+                                    </ItemsPanelTemplate>
+                                </ListView.ItemsPanel>
+                                <ListView.ItemContainerStyle>
+                                    <Style TargetType="ListViewItem">
+                                        <Setter Property="Padding" Value="0" />
+                                        <Setter Property="Margin" Value="10,2" />
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    </Style>
+                                </ListView.ItemContainerStyle>
+                                <ListView.ItemTemplate>
+                                    <DataTemplate x:DataType="local:TerminalTabItem">
+                                        <Grid Background="{x:Bind Background}"
+                                              CornerRadius="6"
+                                              Padding="10,8"
+                                              ColumnSpacing="6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="4" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <Rectangle Grid.Column="0"
+                                                       Width="3"
+                                                       Fill="{x:Bind SelectionIndicatorBrush}"
+                                                       RadiusX="1.5"
+                                                       RadiusY="1.5"
+                                                       HorizontalAlignment="Left" />
+
+                                            <FontIcon Grid.Column="1"
+                                                      FontFamily="Segoe Fluent Icons"
+                                                      Glyph="&#xE823;"
+                                                      FontSize="14"
+                                                      Foreground="{StaticResource AppTextSecondaryBrush}"
+                                                      VerticalAlignment="Center" />
+
+                                            <TextBlock Grid.Column="2"
+                                                       Text="{x:Bind Name}"
+                                                       Foreground="{x:Bind TextBrush}"
+                                                       FontSize="14"
+                                                       FontWeight="{x:Bind NameFontWeight}"
+                                                       VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis" />
+
+                                            <Button Grid.Column="3"
+                                                    Width="22"
+                                                    Height="22"
+                                                    Padding="0"
+                                                    FontSize="9"
+                                                    Tag="{x:Bind SessionId}"
+                                                    Click="CloseTabButton_Click"
+                                                    Background="Transparent"
+                                                    Foreground="{StaticResource AppTextSecondaryBrush}"
+                                                    BorderThickness="0"
+                                                    ToolTipService.ToolTip="Stäng session">
+                                                <SymbolIcon Symbol="Cancel" Style="{StaticResource CompactActionSymbolIcon}" />
+                                            </Button>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        </Grid>
                     </StackPanel>
+                </ScrollViewer>
 
-                    <TextBlock x:Name="EmptyStateText"
-                               Grid.Row="1"
-                               Text="Inga sparade kataloger ännu. Lägg till en nedan."
-                               Foreground="{StaticResource AppTextSecondaryBrush}"
-                               FontSize="13"
-                               Margin="0,0,0,12"
-                               Visibility="Collapsed" />
-
-                    <ListView x:Name="WorkspaceListView"
-                              Grid.Row="2"
-                              MaxHeight="360"
-                              Background="{StaticResource AppSurfaceBrush}"
-                              CornerRadius="12"
-                              Padding="4"
-                              SelectionMode="None">
-                        <ListView.ItemContainerStyle>
-                            <Style TargetType="ListViewItem">
-                                <Setter Property="Padding" Value="0" />
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                            </Style>
-                        </ListView.ItemContainerStyle>
-                        <ListView.ItemTemplate>
-                            <DataTemplate x:DataType="local:WorkspaceListItem">
-                                <Grid Padding="12,10" ColumnSpacing="8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-
-                                    <Button Grid.Column="0"
-                                            Content="{x:Bind StarGlyph}"
-                                            Tag="{x:Bind Id}"
-                                            Click="FavoriteToggle_Click"
-                                            Background="Transparent"
-                                            BorderThickness="0"
-                                            Foreground="{StaticResource AppFavoriteBrush}"
-                                            FontSize="16"
-                                            ToolTipService.ToolTip="Markera som favorit" />
-
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                        <TextBlock Text="{x:Bind Name}"
-                                                   Foreground="{StaticResource AppTextPrimaryBrush}"
-                                                   FontSize="14"
-                                                   FontWeight="SemiBold" />
-                                        <TextBlock Text="{x:Bind Path}"
-                                                   Foreground="{StaticResource AppTextSecondaryBrush}"
-                                                   FontSize="11"
-                                                   TextTrimming="CharacterEllipsis" />
-                                    </StackPanel>
-
-                                    <Button Grid.Column="2"
-                                            Content="&#x2699;"
-                                            Tag="{x:Bind Id}"
-                                            Background="Transparent"
-                                            Foreground="{StaticResource AppTextTertiaryBrush}"
-                                            BorderThickness="0"
-                                            FontSize="15"
-                                            AutomationProperties.Name="{x:Bind Name}"
-                                            ToolTipService.ToolTip="Claude-inställningar för detta projekt">
-                                        <Button.Flyout>
-                                            <Flyout Placement="Bottom">
-                                                <Flyout.FlyoutPresenterStyle>
-                                                    <Style TargetType="FlyoutPresenter">
-                                                        <Setter Property="Background" Value="{StaticResource AppSurfaceBrush}" />
-                                                        <Setter Property="CornerRadius" Value="10" />
-                                                    </Style>
-                                                </Flyout.FlyoutPresenterStyle>
-                                                <StackPanel Spacing="10" MinWidth="200">
-                                                    <TextBlock Text="Claude-inställningar" Foreground="{StaticResource AppTextPrimaryBrush}" FontSize="13" FontWeight="SemiBold" />
-
-                                                    <StackPanel Spacing="4">
-                                                        <TextBlock Text="Permission mode" Foreground="{StaticResource AppTextSecondaryBrush}" FontSize="11" />
-                                                        <ComboBox Tag="{x:Bind Id}"
-                                                                  AutomationProperties.Name="Permission mode"
-                                                                  ItemsSource="{x:Bind PermissionModeOptions}"
-                                                                  DisplayMemberPath="Name"
-                                                                  SelectedValuePath="Id"
-                                                                  SelectedValue="{x:Bind PermissionMode, Mode=OneWay}"
-                                                                  SelectionChanged="WorkspacePermissionModeComboBox_SelectionChanged"
-                                                                  HorizontalAlignment="Stretch" />
-                                                    </StackPanel>
-
-                                                    <StackPanel Spacing="4">
-                                                        <TextBlock Text="Modell" Foreground="{StaticResource AppTextSecondaryBrush}" FontSize="11" />
-                                                        <ComboBox Tag="{x:Bind Id}"
-                                                                  AutomationProperties.Name="Modell"
-                                                                  ItemsSource="{x:Bind ModelOptions}"
-                                                                  DisplayMemberPath="Name"
-                                                                  SelectedValuePath="Id"
-                                                                  SelectedValue="{x:Bind Model, Mode=OneWay}"
-                                                                  SelectionChanged="WorkspaceModelComboBox_SelectionChanged"
-                                                                  HorizontalAlignment="Stretch" />
-                                                    </StackPanel>
-
-                                                    <StackPanel Spacing="4">
-                                                        <TextBlock Text="Effort" Foreground="{StaticResource AppTextSecondaryBrush}" FontSize="11" />
-                                                        <ComboBox Tag="{x:Bind Id}"
-                                                                  AutomationProperties.Name="Effort"
-                                                                  ItemsSource="{x:Bind EffortOptions}"
-                                                                  DisplayMemberPath="Name"
-                                                                  SelectedValuePath="Id"
-                                                                  SelectedValue="{x:Bind Effort, Mode=OneWay}"
-                                                                  SelectionChanged="WorkspaceEffortComboBox_SelectionChanged"
-                                                                  HorizontalAlignment="Stretch" />
-                                                    </StackPanel>
-
-                                                    <StackPanel Spacing="4">
-                                                        <TextBlock Text="Tema" Foreground="{StaticResource AppTextSecondaryBrush}" FontSize="11" />
-                                                        <ComboBox Tag="{x:Bind Id}"
-                                                                  AutomationProperties.Name="Tema"
-                                                                  ItemsSource="{x:Bind ThemeOptions}"
-                                                                  DisplayMemberPath="Name"
-                                                                  SelectedValuePath="Id"
-                                                                  SelectedValue="{x:Bind ThemeId, Mode=OneWay}"
-                                                                  SelectionChanged="WorkspaceThemeComboBox_SelectionChanged"
-                                                                  HorizontalAlignment="Stretch" />
-                                                    </StackPanel>
-                                                </StackPanel>
-                                            </Flyout>
-                                        </Button.Flyout>
-                                    </Button>
-
-                                    <Button Grid.Column="3"
-                                            Content="Byt namn"
-                                            Tag="{x:Bind Id}"
-                                            Click="RenameWorkspace_Click"
-                                            Background="Transparent"
-                                            Foreground="{StaticResource AppTextTertiaryBrush}"
-                                            BorderThickness="0" />
-
-                                    <Button Grid.Column="4"
-                                            Content="Ta bort"
-                                            Tag="{x:Bind Id}"
-                                            Click="RemoveWorkspace_Click"
-                                            Background="Transparent"
-                                            Foreground="{StaticResource AppDangerBrush}"
-                                            BorderThickness="0" />
-
-                                    <Button Grid.Column="5"
-                                            Content="Starta"
-                                            Tag="{x:Bind Id}"
-                                            Click="StartWorkspace_Click"
-                                            Background="{x:Bind StartButtonBrush}"
-                                            Foreground="White"
-                                            CornerRadius="6"
-                                            Padding="14,6" />
-                                </Grid>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
-
-                    <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="12" Margin="0,20,0,0">
-                        <Button x:Name="AddDirectoryButton"
-                                Content="+ Lägg till mapp"
-                                Click="AddDirectoryButton_Click"
-                                Background="{StaticResource AppNeutralButtonBrush}"
-                                Foreground="{StaticResource AppTextPrimaryBrush}"
-                                CornerRadius="8"
-                                Padding="14,8" />
-                        <Button x:Name="BrowseAndStartButton"
-                                Content="Välj mapp och starta"
-                                Click="BrowseAndStartButton_Click"
+                <!-- Settings is a normal sidebar row, not a boxed-off secondary footer. -->
+                <Grid Grid.Row="1" Margin="14,0,14,14">
+                        <Button HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Left"
+                                Padding="8,6"
+                                FontSize="14"
                                 Background="Transparent"
-                                BorderBrush="{StaticResource AppNeutralButtonBrush}"
-                                BorderThickness="1"
                                 Foreground="{StaticResource AppTextPrimaryBrush}"
-                                CornerRadius="8"
-                                Padding="14,8" />
-                        <Button x:Name="CancelAddTabButton"
-                                Content="Avbryt"
-                                Click="CancelAddTabButton_Click"
+                                BorderThickness="0"
+                                CornerRadius="6"
+                                ToolTipService.ToolTip="Inställningar">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <SymbolIcon Symbol="Setting" Style="{StaticResource CompactActionSymbolIcon}" />
+                                <TextBlock Text="Inställningar" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <Button.Flyout>
+                                <Flyout Placement="Top">
+                                    <Flyout.FlyoutPresenterStyle>
+                                        <Style TargetType="FlyoutPresenter">
+                                            <Setter Property="Background" Value="{StaticResource AppSurfaceBrush}" />
+                                            <Setter Property="CornerRadius" Value="8" />
+                                        </Style>
+                                    </Flyout.FlyoutPresenterStyle>
+                                    <StackPanel Spacing="10" MinWidth="220">
+                                        <TextBlock Text="Inställningar" Foreground="{StaticResource AppTextPrimaryBrush}" FontSize="13" FontWeight="SemiBold" />
+
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="Tema" Foreground="{StaticResource AppTextSecondaryBrush}" FontSize="12" />
+                                            <ComboBox x:Name="AppThemeComboBox"
+                                                      SelectedValuePath="Tag"
+                                                      SelectionChanged="AppThemeComboBox_SelectionChanged"
+                                                      FontSize="12"
+                                                      HorizontalAlignment="Stretch">
+                                                <ComboBoxItem Content="Mörkblå" Tag="dark_blue" />
+                                                <ComboBoxItem Content="Kolsvart" Tag="near_black" />
+                                                <ComboBoxItem Content="Bärnsten" Tag="warm_amber" />
+                                                <ComboBoxItem Content="Djuphav" Tag="deep_teal" />
+                                                <ComboBoxItem Content="Violett" Tag="deep_violet" />
+                                            </ComboBox>
+                                        </StackPanel>
+
+                                        <Button x:Name="CheckForUpdatesButton"
+                                                Content="Sök efter Claude-uppdateringar"
+                                                Click="CheckForUpdatesButton_Click"
+                                                Background="{StaticResource AppNeutralButtonBrush}"
+                                                Foreground="{StaticResource AppTextPrimaryBrush}"
+                                                CornerRadius="6"
+                                                Padding="12,6"
+                                                FontSize="12"
+                                                HorizontalAlignment="Stretch" />
+
+                                        <Border x:Name="UpdateStatusChip"
+                                                Background="{StaticResource AppPageBrush}"
+                                                CornerRadius="6"
+                                                Padding="10,6"
+                                                Visibility="Collapsed">
+                                            <Border.Transitions>
+                                                <TransitionCollection>
+                                                    <ContentThemeTransition />
+                                                </TransitionCollection>
+                                            </Border.Transitions>
+                                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                <ProgressRing x:Name="UpdateProgressRing"
+                                                              IsActive="False"
+                                                              Width="13"
+                                                              Height="13"
+                                                              Foreground="{StaticResource AppTextSecondaryBrush}" />
+                                                <FontIcon x:Name="UpdateStatusIcon"
+                                                          FontFamily="Segoe Fluent Icons"
+                                                          FontSize="12"
+                                                          Glyph="&#xE946;"
+                                                          Foreground="{StaticResource AppTextSecondaryBrush}"
+                                                          Visibility="Collapsed" />
+                                                <TextBlock x:Name="UpdateStatusText"
+                                                           Foreground="{StaticResource AppTextSecondaryBrush}"
+                                                           FontSize="12"
+                                                           TextWrapping="WrapWholeWords"
+                                                           VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Border>
+
+                                        <TextBlock x:Name="VersionText"
+                                                   Foreground="{StaticResource AppTextTertiaryBrush}"
+                                                   FontSize="11"
+                                                   Opacity="0.8"
+                                                   TextWrapping="WrapWholeWords" />
+                                    </StackPanel>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- ============================== Right panel ============================== -->
+        <Grid Grid.Row="0" Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Thin context row: active session -->
+            <Border x:Name="ActiveContextRow"
+                    Grid.Row="0"
+                    Height="48"
+                    Background="{StaticResource AppSurfaceBrush}"
+                    BorderBrush="{StaticResource AppDividerBrush}"
+                    BorderThickness="0,0,0,1"
+                    Padding="12,0"
+                    Visibility="Collapsed">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Tabs live in the native title bar now; keep this legacy in-page tab strip out of view. -->
+                    <StackPanel Grid.Column="0"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Bottom"
+                                Visibility="Collapsed">
+                        <ListView x:Name="OpenSessionTabsListView"
+                                  IsItemClickEnabled="True"
+                                  ItemClick="OpenSessionTabsListView_ItemClick"
+                                  SelectionMode="None"
+                                  Background="Transparent"
+                                  HorizontalAlignment="Left">
+                            <ListView.Resources>
+                                <SolidColorBrush x:Key="ListViewItemBackground" Color="Transparent" />
+                                <SolidColorBrush x:Key="ListViewItemBackgroundPointerOver" Color="Transparent" />
+                                <SolidColorBrush x:Key="ListViewItemBackgroundPressed" Color="Transparent" />
+                                <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="Transparent" />
+                                <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="Transparent" />
+                                <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="Transparent" />
+                            </ListView.Resources>
+                            <ListView.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ListView.ItemsPanel>
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="Padding" Value="0" />
+                                    <Setter Property="Margin" Value="0,4,2,0" />
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="local:TerminalTabItem">
+                                    <Border Width="128"
+                                            Height="44"
+                                            Background="{x:Bind OpenTabBackground}"
+                                            BorderBrush="{x:Bind OpenTabBorderBrush}"
+                                            BorderThickness="1,1,1,0"
+                                            CornerRadius="6,6,0,0"
+                                            Padding="8,0">
+                                        <Grid ColumnSpacing="6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="6" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="18" />
+                                            </Grid.ColumnDefinitions>
+                                            <Ellipse Width="6"
+                                                     Height="6"
+                                                     Fill="{x:Bind StatusDotBrush}"
+                                                     VerticalAlignment="Center"
+                                                     Visibility="{x:Bind StatusDotVisibility}"
+                                                     Loaded="StatusDot_Loaded"
+                                                     Tag="{x:Bind StatusDotAnimation}" />
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{x:Bind Name}"
+                                                       Foreground="{x:Bind TextBrush}"
+                                                       FontSize="13"
+                                                       FontWeight="{x:Bind NameFontWeight}"
+                                                       VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <Button Grid.Column="2"
+                                                    Width="18"
+                                                    Height="18"
+                                                    Padding="0"
+                                                    FontSize="9"
+                                                    Background="Transparent"
+                                                    Foreground="{StaticResource AppTextSecondaryBrush}"
+                                                    BorderThickness="0"
+                                                    CornerRadius="4"
+                                                    Tag="{x:Bind SessionId}"
+                                                    Click="CloseTabButton_Click"
+                                                    ToolTipService.ToolTip="Stäng flik">
+                                                <SymbolIcon Symbol="Cancel" Style="{StaticResource CompactActionSymbolIcon}" />
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+
+                        <Button Width="32"
+                                Height="32"
+                                Padding="0"
+                                FontSize="14"
+                                Margin="4,8,0,0"
                                 Background="Transparent"
                                 Foreground="{StaticResource AppTextSecondaryBrush}"
                                 BorderThickness="0"
-                                Padding="14,8"
-                                Visibility="Collapsed" />
+                                CornerRadius="4"
+                                Click="AddTabButton_Click"
+                                ToolTipService.ToolTip="Starta ny session">
+                            <SymbolIcon Symbol="Add" Style="{StaticResource CompactAddSymbolIcon}" />
+                        </Button>
+                    </StackPanel>
+
+                    <TabView x:Name="OpenSessionTabsView"
+                             Grid.Column="0"
+                             Visibility="Collapsed"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             TabWidthMode="SizeToContent"
+                             IsAddTabButtonVisible="True"
+                             CanDragTabs="False"
+                             CanReorderTabs="False"
+                             SelectionChanged="OpenSessionTabsView_SelectionChanged"
+                             AddTabButtonClick="OpenSessionTabsView_AddTabButtonClick"
+                             TabCloseRequested="OpenSessionTabsView_TabCloseRequested">
+                        <TabView.TabItemTemplate>
+                            <DataTemplate x:DataType="local:TerminalTabItem">
+                                <TabViewItem IsClosable="True" Tag="{x:Bind SessionId}">
+                                    <TabViewItem.Header>
+                                        <TextBlock Text="{x:Bind Name}"
+                                                   Foreground="{x:Bind TextBrush}"
+                                                   FontSize="13"
+                                                   FontWeight="{x:Bind NameFontWeight}"
+                                                   MaxWidth="150"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </TabViewItem.Header>
+                                </TabViewItem>
+                            </DataTemplate>
+                        </TabView.TabItemTemplate>
+                    </TabView>
+
+                    <!-- Kept for the existing active-session chrome update path. -->
+                    <Ellipse x:Name="ContextStatusDot" Width="0" Height="0" />
+                    <TextBlock x:Name="ActiveSessionNameText" Visibility="Collapsed" />
+
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal"
+                                Spacing="6"
+                                VerticalAlignment="Center">
+                        <Button x:Name="AttachFileButton"
+                                Width="28"
+                                Height="28"
+                                Padding="0"
+                                FontSize="11"
+                                Click="AttachFileButton_Click"
+                                Background="Transparent"
+                                Foreground="{StaticResource AppTextSecondaryBrush}"
+                                BorderThickness="0"
+                                CornerRadius="16"
+                                VerticalAlignment="Center"
+                                ToolTipService.ToolTip="Bifoga fil till Claude">
+                            <SymbolIcon Symbol="Attach" Style="{StaticResource CompactActionSymbolIcon}" />
+                        </Button>
+
+                        <Button x:Name="SessionSettingsButton"
+                                Width="28"
+                                Height="28"
+                                Padding="0"
+                                FontSize="11"
+                                Background="Transparent"
+                                Foreground="{StaticResource AppTextSecondaryBrush}"
+                                BorderThickness="0"
+                                CornerRadius="16"
+                                VerticalAlignment="Center"
+                                ToolTipService.ToolTip="Byt permission mode, modell eller effort för denna session">
+                            <SymbolIcon Symbol="Setting" Style="{StaticResource CompactActionSymbolIcon}" />
+                            <Button.Flyout>
+                            <Flyout x:Name="SessionSettingsFlyout" Placement="Bottom" Opening="SessionSettingsFlyout_Opening">
+                                <Flyout.FlyoutPresenterStyle>
+                                    <Style TargetType="FlyoutPresenter">
+                                        <Setter Property="Background" Value="{StaticResource AppSurfaceBrush}" />
+                                        <Setter Property="CornerRadius" Value="8" />
+                                    </Style>
+                                </Flyout.FlyoutPresenterStyle>
+                                <StackPanel Spacing="10" MinWidth="200">
+                                    <TextBlock Text="Claude-inställningar (denna session)" Foreground="{StaticResource AppTextPrimaryBrush}" FontSize="13" FontWeight="SemiBold" TextWrapping="WrapWholeWords" />
+
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="Modell" Foreground="{StaticResource AppTextSecondaryBrush}" FontSize="12" />
+                                        <ComboBox x:Name="SessionModelComboBox"
+                                                  SelectedValuePath="Tag"
+                                                  SelectionChanged="SessionModelComboBox_SelectionChanged"
+                                                  HorizontalAlignment="Stretch">
+                                            <ComboBoxItem Content="Sonnet" Tag="sonnet" />
+                                            <ComboBoxItem Content="Opus" Tag="opus" />
+                                            <ComboBoxItem Content="Fable" Tag="fable" />
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="Effort" Foreground="{StaticResource AppTextSecondaryBrush}" FontSize="12" />
+                                        <ComboBox x:Name="SessionEffortComboBox"
+                                                  SelectedValuePath="Tag"
+                                                  SelectionChanged="SessionEffortComboBox_SelectionChanged"
+                                                  HorizontalAlignment="Stretch">
+                                            <ComboBoxItem Content="Low" Tag="low" />
+                                            <ComboBoxItem Content="Medium" Tag="medium" />
+                                            <ComboBoxItem Content="High" Tag="high" />
+                                            <ComboBoxItem Content="X-High" Tag="xhigh" />
+                                            <ComboBoxItem Content="Max" Tag="max" />
+                                        </ComboBox>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Flyout>
+                        </Button.Flyout>
+                        </Button>
+
+                        <Button Width="28"
+                                Height="28"
+                                Padding="0"
+                                FontSize="11"
+                                Click="CloseActiveSessionButton_Click"
+                                Background="Transparent"
+                                Foreground="{StaticResource AppTextSecondaryBrush}"
+                                BorderThickness="0"
+                                CornerRadius="16"
+                                VerticalAlignment="Center"
+                                ToolTipService.ToolTip="Stäng session">
+                            <SymbolIcon Symbol="Cancel" Style="{StaticResource CompactActionSymbolIcon}" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Terminal surface -->
+            <Grid Grid.Row="1">
+                <WebView2 x:Name="TerminalView"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          Margin="0" />
+
+                <Border x:Name="StatusOverlay"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Bottom"
+                        Margin="16"
+                        Padding="14,10"
+                        Visibility="Collapsed"
+                        Opacity="0.94"
+                        Background="{StaticResource AppSurfaceOverlayBrush}"
+                        CornerRadius="6">
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="Claude Code"
+                                   Foreground="{StaticResource AppTextPrimaryBrush}"
+                                   FontSize="13"
+                                   FontWeight="SemiBold" />
+                        <TextBlock x:Name="StatusText"
+                                   Text="Startar terminalen..."
+                                   Foreground="{StaticResource AppTextSecondaryBrush}"
+                                   FontSize="12"
+                                   TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+                </Border>
+
+                <!--
+                    Full-bleed cover, not just a floating spinner — the terminal underneath
+                    still renders while Claude Code starts (including xterm's own scrollbar
+                    gutter), so anything less than opaque and full-size lets that peek out
+                    around the edges during the brief loading window.
+                -->
+                <Grid x:Name="LoadingOverlay"
+                      Background="{StaticResource AppSurfaceBrush}"
+                      Visibility="Collapsed"
+                      IsHitTestVisible="False">
+                    <StackPanel HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Spacing="10">
+                        <ProgressRing IsActive="True"
+                                      Width="28"
+                                      Height="28"
+                                      Foreground="{StaticResource AppAccentBrush}" />
+                        <TextBlock Text="Startar Claude Code..."
+                                   Foreground="{StaticResource AppTextTertiaryBrush}"
+                                   FontSize="12"
+                                   HorizontalAlignment="Center" />
                     </StackPanel>
                 </Grid>
 
-                <!--
-                    Build version + timestamp, pinned to the true bottom of the launcher
-                    (outside the centered content box) so it's always visible regardless of
-                    how many saved workspaces are listed above — lets us confirm at a glance
-                    that a freshly published build actually reached the running app.
-                -->
-                <TextBlock x:Name="VersionText"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Bottom"
-                           Margin="0,0,0,10"
-                           Foreground="{StaticResource AppTextTertiaryBrush}"
-                           FontSize="11"
-                           Opacity="0.6" />
+                <!-- Shown when no project/session is active. -->
+                <Grid x:Name="EmptyRightPane" Background="{StaticResource AppSurfaceBrush}">
+                    <StackPanel HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Spacing="10">
+                        <TextBlock Text="Välj ett projekt i sidofältet"
+                                   Foreground="{StaticResource AppTextSecondaryBrush}"
+                                   FontSize="14"
+                                   HorizontalAlignment="Center" />
+                        <Button Click="AddTabButton_Click"
+                                FontSize="14"
+                                Background="{StaticResource AppNeutralButtonBrush}"
+                                Foreground="{StaticResource AppTextPrimaryBrush}"
+                                CornerRadius="6"
+                                Padding="14,8"
+                                HorizontalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <SymbolIcon Symbol="Add" />
+                                <TextBlock Text="Lägg till projekt" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
             </Grid>
         </Grid>
+
+        <!-- ============================== Shared footer ============================== -->
+        <Border Grid.Row="1"
+                Grid.Column="0"
+                Grid.ColumnSpan="2"
+                Height="40"
+                Background="{StaticResource AppSurfaceBrush}"
+                BorderBrush="{StaticResource AppDividerBrush}"
+                BorderThickness="0,1,0,0">
+            <Grid Padding="22,0" ColumnSpacing="16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Ellipse x:Name="ActiveStatusDot"
+                             Width="8"
+                             Height="8"
+                             Fill="{StaticResource AppTextTertiaryBrush}"
+                             VerticalAlignment="Center" />
+                    <TextBlock x:Name="ActiveStatusText"
+                               Foreground="{StaticResource AppTextSecondaryBrush}"
+                               FontSize="13"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+
+                <StackPanel x:Name="UsageOverlay"
+                            Grid.Column="1"
+                            Orientation="Horizontal"
+                            Spacing="10"
+                            VerticalAlignment="Center"
+                            Margin="0,0,4,0"
+                            Visibility="Visible">
+                    <TextBlock Text="Context usage"
+                               Foreground="{StaticResource AppTextTertiaryBrush}"
+                               FontSize="13"
+                               VerticalAlignment="Center" />
+                    <Border x:Name="UsageProgressTrack"
+                            Width="150"
+                            Height="6"
+                            Background="{StaticResource AppNeutralButtonBrush}"
+                            CornerRadius="3"
+                            VerticalAlignment="Center">
+                        <Border x:Name="UsageProgressFill"
+                                Width="0"
+                                HorizontalAlignment="Left"
+                                Background="{StaticResource AppAccentBrush}"
+                                CornerRadius="3" />
+                    </Border>
+                    <TextBlock x:Name="UsageText"
+                               Text="-"
+                               Foreground="{StaticResource AppTextSecondaryBrush}"
+                               FontSize="13"
+                               MinWidth="30"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ============================== Add-project dialog ============================== -->
+        <ContentDialog x:Name="AddProjectDialog"
+                       Title="Lägg till projekt"
+                       PrimaryButtonText="Lägg till mapp"
+                       SecondaryButtonText="Starta från mapp..."
+                       CloseButtonText="Avbryt"
+                       DefaultButton="Primary"
+                       Background="{StaticResource AppSurfaceBrush}"
+                       CornerRadius="10">
+            <ContentDialog.Resources>
+                <!--
+                    Tones the dialog down to the app's own surface/accent language instead of
+                    the system-default flyout look — same blue as the row start button, same
+                    corner radius as flyouts elsewhere in the app.
+                -->
+                <StaticResource x:Key="ContentDialogButtonForeground" ResourceKey="AppTextPrimaryBrush" />
+                <StaticResource x:Key="AccentButtonBackground" ResourceKey="AppAccentBrush" />
+                <StaticResource x:Key="AccentButtonBackgroundPointerOver" ResourceKey="AppAccentBrush" />
+                <StaticResource x:Key="AccentButtonBackgroundPressed" ResourceKey="AppAccentBrush" />
+                <StaticResource x:Key="ButtonBackground" ResourceKey="AppNeutralButtonBrush" />
+                <StaticResource x:Key="ButtonBackgroundPointerOver" ResourceKey="AppNeutralButtonBrush" />
+                <CornerRadius x:Key="ContentDialogCornerRadius">10</CornerRadius>
+                <CornerRadius x:Key="ControlCornerRadius">6</CornerRadius>
+            </ContentDialog.Resources>
+            <StackPanel Spacing="10" MaxWidth="360">
+                <TextBlock Foreground="{StaticResource AppTextSecondaryBrush}"
+                           FontSize="12"
+                           TextWrapping="WrapWholeWords">
+                    <Run Text="Lägg till mapp" FontWeight="SemiBold" />
+                    <Run Text="sparar en mapp som ett projekt i sidofältet, så den finns kvar nästa gång." />
+                </TextBlock>
+                <TextBlock Foreground="{StaticResource AppTextSecondaryBrush}"
+                           FontSize="12"
+                           TextWrapping="WrapWholeWords">
+                    <Run Text="Starta från mapp..." FontWeight="SemiBold" />
+                    <Run Text="öppnar en tillfällig session direkt i en mapp, utan att spara något." />
+                </TextBlock>
+            </StackPanel>
+        </ContentDialog>
 
         <!--
             App-level update banner (Claudium itself, via Velopack) — deliberately
             separate from UpdateStatusChip above, which is about the Claude Code CLI.
-            Spans both rows and sits last so it floats on top regardless of whether the
-            launcher or a terminal tab is showing.
+            Spans both columns and sits last so it floats on top regardless of what else
+            is showing.
         -->
         <Border x:Name="AppUpdateBanner"
                 Grid.Row="0"
-                Grid.RowSpan="2"
+                Grid.Column="0"
+                Grid.ColumnSpan="2"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Top"
                 Margin="0,16,0,0"
                 Padding="16,10"
                 Visibility="Collapsed"
                 Background="{StaticResource AppSurfaceOverlayBrush}"
-                CornerRadius="12">
+                CornerRadius="8">
             <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                 <TextBlock x:Name="AppUpdateBannerText"
                            Foreground="{StaticResource AppTextPrimaryBrush}"
@@ -552,17 +898,20 @@
                         Click="AppUpdateRestartButton_Click"
                         Background="{StaticResource AppNeutralButtonBrush}"
                         Foreground="{StaticResource AppTextPrimaryBrush}"
-                        CornerRadius="8"
+                        CornerRadius="6"
                         Padding="12,6"
                         FontSize="12" />
                 <Button x:Name="AppUpdateDismissButton"
-                        Content="✕"
+                        Width="32"
+                        Height="32"
+                        Padding="0"
+                        FontSize="13"
                         Click="AppUpdateDismissButton_Click"
                         Background="Transparent"
                         Foreground="{StaticResource AppTextTertiaryBrush}"
-                        BorderThickness="0"
-                        Padding="6"
-                        FontSize="12" />
+                        BorderThickness="0">
+                    <SymbolIcon Symbol="Cancel" />
+                </Button>
             </StackPanel>
         </Border>
     </Grid>

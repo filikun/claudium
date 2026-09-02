@@ -8,10 +8,10 @@
   <link rel="stylesheet" href="./xterm/xterm.css" />
   <style>
     :root {
-      --background: #272c44;
-      --foreground: #e8ecf5;
+      --background: #1f2229;
+      --foreground: #d7dbe3;
       --cursor: #58d0aa;
-      --selection: rgba(109, 125, 189, 0.32);
+      --selection: rgba(109, 125, 189, 0.28);
     }
 
     html, body {
@@ -33,10 +33,13 @@
     .terminal-pane {
       position: absolute;
       inset: 0;
-      padding: 16px 16px 26px 16px;
+      /* No radius/card edge on top or sides — the terminal reads as the app's own main
+         surface there. A soft radius on the bottom two corners only gives the input area
+         a quiet "composer" feel without a literal divider drawn over live CLI output. */
+      border-radius: 0 0 10px 10px;
+      padding: 28px 36px 32px 36px;
       box-sizing: border-box;
       background: var(--background);
-      border-radius: 10px;
       overflow: hidden;
     }
 
@@ -250,25 +253,41 @@
       }
     }
 
+    // xterm's documented default ANSI palette. Keeping it separate from the app surface
+    // colors lets Claude Code render its own warnings, prompts and status text normally.
+    const DEFAULT_ANSI_COLORS = {
+      black: '#2e3436', red: '#cc0000', green: '#4e9a06', yellow: '#c4a000',
+      blue: '#3465a4', magenta: '#75507b', cyan: '#06989a', white: '#d3d7cf',
+      brightBlack: '#555753', brightRed: '#ef2929', brightGreen: '#8ae234',
+      brightYellow: '#fce94f', brightBlue: '#729fcf', brightMagenta: '#ad7fa8',
+      brightCyan: '#34e2e2', brightWhite: '#eeeeec'
+    };
+
+    function buildTerminalTheme(colors) {
+      return Object.assign({}, DEFAULT_ANSI_COLORS, colors);
+    }
+
     function createSession(sessionId, theme) {
       const container = document.createElement('div');
       container.className = 'terminal-pane';
-      container.style.display = 'none';
+      container.style.visibility = 'hidden';
+      container.style.contentVisibility = 'hidden';
+      container.style.pointerEvents = 'none';
       terminalRoot.appendChild(container);
 
-      const resolvedTheme = theme || {
-        background: '#272c44',
-        foreground: '#e8ecf5',
+      const resolvedTheme = buildTerminalTheme(theme || {
+        background: '#1f2229',
+        foreground: '#d7dbe3',
         cursor: '#58d0aa',
-        selectionBackground: 'rgba(109, 125, 189, 0.32)'
-      };
+        selectionBackground: 'rgba(109, 125, 189, 0.28)'
+      });
       container.style.setProperty('--background', resolvedTheme.background);
 
       const term = new Terminal({
         cursorBlink: true,
         fontFamily: 'Consolas, Cascadia Mono, monospace',
-        fontSize: 15,
-        lineHeight: 1.2,
+        fontSize: 16,
+        lineHeight: 1.35,
         scrollback: 5000,
         convertEol: false,
         theme: resolvedTheme
@@ -447,7 +466,7 @@
       }
 
       entry.container.style.setProperty('--background', background);
-      entry.term.options.theme = { background, foreground, cursor, selectionBackground };
+      entry.term.options.theme = buildTerminalTheme({ background, foreground, cursor, selectionBackground });
       entry.term.refresh(0, entry.term.rows - 1);
     };
 
@@ -458,11 +477,20 @@
       }
 
       if (activeSessionId && sessions.has(activeSessionId)) {
-        sessions.get(activeSessionId).container.style.display = 'none';
+        const previous = sessions.get(activeSessionId).container;
+        previous.style.visibility = 'hidden';
+        previous.style.contentVisibility = 'hidden';
+        previous.style.pointerEvents = 'none';
       }
 
       activeSessionId = sessionId;
-      entry.container.style.display = 'block';
+      entry.container.style.visibility = 'visible';
+      // content-visibility: hidden still keeps the pane's layout box (so proposeDimensions()
+      // can measure it while backgrounded), but skips paint/render work for it — this is
+      // what actually stops xterm's canvas renderer from doing GPU work for background
+      // sessions that keep receiving CLI output.
+      entry.container.style.contentVisibility = 'visible';
+      entry.container.style.pointerEvents = 'auto';
       entry.initialGeometrySent = false;
       fitSession(sessionId);
       scheduleInitialFit(sessionId);
