@@ -19,7 +19,6 @@
         </Grid.RowDefinitions>
 
         <TitleBar x:Name="AppTitleBar"
-                  Title="Claudium"
                   Background="{StaticResource AppSurfaceBrush}"
                   Foreground="{StaticResource AppTextPrimaryBrush}"
                   HorizontalContentAlignment="Left">
