@@ -137,10 +137,10 @@
                             <DataTemplate x:DataType="local:TerminalTabItem">
                                 <TabViewItem IsClosable="True">
                                     <TabViewItem.Header>
-                                        <TextBlock Text="{x:Bind Name}"
-                                                   Foreground="{x:Bind TextBrush}"
+                                        <TextBlock Text="{x:Bind Name, Mode=OneWay}"
+                                                   Foreground="{x:Bind TextBrush, Mode=OneWay}"
                                                    FontSize="13"
-                                                   FontWeight="{x:Bind NameFontWeight}"
+                                                   FontWeight="{x:Bind NameFontWeight, Mode=OneWay}"
                                                    MaxWidth="150"
                                                    TextTrimming="CharacterEllipsis" />
                                     </TabViewItem.Header>

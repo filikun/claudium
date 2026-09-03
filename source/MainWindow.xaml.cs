@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+using System.Linq;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -19,9 +21,17 @@ namespace Claudium;
 /// </summary>
 public sealed partial class MainWindow : Window
 {
+    /// <summary>
+    /// Bound once for the window's lifetime — see the remarks on <see cref="UpdateTitleBarTabs"/>
+    /// for why this must never be reassigned wholesale.
+    /// </summary>
+    private readonly ObservableCollection<TerminalTabItem> _titleBarTabs = new();
+
     public MainWindow()
     {
         InitializeComponent();
+
+        TitleBarTabsView.TabItemsSource = _titleBarTabs;
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
@@ -106,16 +116,69 @@ public sealed partial class MainWindow : Window
         TitleBarContentHost.Width = System.Math.Max(0, windowWidth - TitleBarSideReserve);
     }
 
-    /// <summary>Keeps the title-bar tabs synchronized with the page's session list.</summary>
+    /// <summary>
+    /// Keeps the title-bar tabs synchronized with the page's session list.
+    /// </summary>
+    /// <remarks>
+    /// The caller rebuilds its whole <see cref="TerminalTabItem"/> list from scratch on
+    /// every refresh (open/close/status tick/switch — this runs very often). Wholesale
+    /// reassigning <see cref="TabView.TabItemsSource"/> each time forces TabView to tear
+    /// down and re-realize every tab container; when that races a container still being
+    /// realized (typically the most-recently-touched, i.e. active, tab), that tab's
+    /// container can end up never added to the visual tree and the tab simply vanishes.
+    /// Instead we keep one persistent <see cref="ObservableCollection{T}"/> bound for the
+    /// lifetime of the window and reconcile it in place (insert/remove/update-in-place via
+    /// <see cref="TerminalTabItem.UpdateFrom"/>), so TabView only ever sees the specific,
+    /// small change that actually happened instead of a full teardown.
+    /// </remarks>
     public void UpdateTitleBarTabs(IReadOnlyList<TerminalTabItem> items)
     {
-        // Rebinding creates new item instances. Do not treat that programmatic selection
-        // as a user tab switch, otherwise the terminal gets needlessly swapped twice.
         _isSynchronizingTitleBarTabs = true;
         try
         {
-            TitleBarTabsView.TabItemsSource = items;
-            TitleBarTabsView.SelectedItem = items.FirstOrDefault(item => item.IsActive);
+            for (int i = _titleBarTabs.Count - 1; i >= 0; i--)
+            {
+                if (!items.Any(item => item.SessionId == _titleBarTabs[i].SessionId))
+                {
+                    _titleBarTabs.RemoveAt(i);
+                }
+            }
+
+            for (int targetIndex = 0; targetIndex < items.Count; targetIndex++)
+            {
+                TerminalTabItem source = items[targetIndex];
+                int currentIndex = -1;
+                for (int i = 0; i < _titleBarTabs.Count; i++)
+                {
+                    if (_titleBarTabs[i].SessionId == source.SessionId)
+                    {
+                        currentIndex = i;
+                        break;
+                    }
+                }
+
+                if (currentIndex < 0)
+                {
+                    _titleBarTabs.Insert(targetIndex, source);
+                }
+                else
+                {
+                    if (currentIndex != targetIndex)
+                    {
+                        TerminalTabItem existing = _titleBarTabs[currentIndex];
+                        _titleBarTabs.RemoveAt(currentIndex);
+                        _titleBarTabs.Insert(targetIndex, existing);
+                    }
+
+                    _titleBarTabs[targetIndex].UpdateFrom(source);
+                }
+            }
+
+            TerminalTabItem? active = _titleBarTabs.FirstOrDefault(item => item.IsActive);
+            if (!ReferenceEquals(TitleBarTabsView.SelectedItem, active))
+            {
+                TitleBarTabsView.SelectedItem = active;
+            }
         }
         finally
         {
