@@ -33,12 +33,6 @@ public sealed class WorkspaceProfile
     /// <summary>Raw extra CLI flags appended verbatim to the claude invocation.</summary>
     public string? ExtraArgs { get; set; }
 
-    /// <summary>
-    /// Id of the <see cref="Claudium.Models.AppTheme"/> to use for this workspace's
-    /// terminal colors. Null means "use the app-wide default theme".
-    /// </summary>
-    public string? ThemeId { get; set; }
-
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
 
     public DateTimeOffset? LastUsedAt { get; set; }

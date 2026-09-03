@@ -25,8 +25,8 @@ namespace Claudium;
 /// Display row for the workspace list. Kept separate from <see cref="WorkspaceProfile"/>
 /// so the XAML DataTemplate only ever sees plain, pre-formatted values.
 /// </summary>
-/// <summary>Display option for a theme picker ComboBox (Id/Name pair).</summary>
-public sealed class ThemeOption
+/// <summary>Display option for a picker ComboBox (Id/Name pair) — permission mode, model, effort.</summary>
+public sealed class PickerOption
 {
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
@@ -34,36 +34,14 @@ public sealed class ThemeOption
 
 public sealed class WorkspaceListItem
 {
-    /// <summary>
-    /// Builds the theme option list, with the "use app default" entry labeled with the
-    /// app's currently resolved default theme name (rather than a bare "Standard") so the
-    /// picker always shows what value will actually be used.
-    /// </summary>
-    public static IReadOnlyList<ThemeOption> BuildThemeOptions(string appDefaultThemeName)
-    {
-        return new List<ThemeOption>
-        {
-            new ThemeOption { Id = string.Empty, Name = "App-standard (" + appDefaultThemeName + ")" },
-            new ThemeOption { Id = "dark_blue", Name = "Mörkblå" },
-            new ThemeOption { Id = "near_black", Name = "Kolsvart" },
-            new ThemeOption { Id = "warm_amber", Name = "Bärnsten" },
-            new ThemeOption { Id = "deep_teal", Name = "Djuphav" },
-            new ThemeOption { Id = "deep_violet", Name = "Violett" }
-        }.AsReadOnly();
-    }
-
-    /// <summary>Set once per <see cref="MainPage.RefreshWorkspaceList"/> call so x:Bind can see it.</summary>
-    public IReadOnlyList<ThemeOption> ThemeOptions { get; set; } = Array.Empty<ThemeOption>();
-
-    public IReadOnlyList<ThemeOption> PermissionModeOptions => ClaudeOptions.PermissionModeOptions;
-    public IReadOnlyList<ThemeOption> ModelOptions => ClaudeOptions.ModelOptions;
-    public IReadOnlyList<ThemeOption> EffortOptions => ClaudeOptions.EffortOptions;
+    public IReadOnlyList<PickerOption> PermissionModeOptions => ClaudeOptions.PermissionModeOptions;
+    public IReadOnlyList<PickerOption> ModelOptions => ClaudeOptions.ModelOptions;
+    public IReadOnlyList<PickerOption> EffortOptions => ClaudeOptions.EffortOptions;
 
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Path { get; set; } = string.Empty;
     public string StarGlyph { get; set; } = "☆";
-    public string ThemeId { get; set; } = string.Empty;
     public string PermissionMode { get; set; } = string.Empty;
     public string Model { get; set; } = string.Empty;
     public string Effort { get; set; } = string.Empty;
@@ -80,33 +58,33 @@ public sealed class WorkspaceListItem
 /// <summary>Shared option lists for the permission-mode/model/effort pickers (launcher row and live tab-bar switcher).</summary>
 public static class ClaudeOptions
 {
-    public static readonly IReadOnlyList<ThemeOption> PermissionModeOptions = new List<ThemeOption>
+    public static readonly IReadOnlyList<PickerOption> PermissionModeOptions = new List<PickerOption>
     {
-        new ThemeOption { Id = string.Empty, Name = "Claude Codes standard" },
-        new ThemeOption { Id = "auto", Name = "Auto" },
-        new ThemeOption { Id = "acceptEdits", Name = "Acceptera ändringar" },
-        new ThemeOption { Id = "plan", Name = "Plan" },
-        new ThemeOption { Id = "dontAsk", Name = "Fråga inte" },
-        new ThemeOption { Id = "bypassPermissions", Name = "Hoppa över behörigheter" },
-        new ThemeOption { Id = "manual", Name = "Manuell" }
+        new PickerOption { Id = string.Empty, Name = "Claude Codes standard" },
+        new PickerOption { Id = "auto", Name = "Auto" },
+        new PickerOption { Id = "acceptEdits", Name = "Acceptera ändringar" },
+        new PickerOption { Id = "plan", Name = "Plan" },
+        new PickerOption { Id = "dontAsk", Name = "Fråga inte" },
+        new PickerOption { Id = "bypassPermissions", Name = "Hoppa över behörigheter" },
+        new PickerOption { Id = "manual", Name = "Manuell" }
     }.AsReadOnly();
 
-    public static readonly IReadOnlyList<ThemeOption> ModelOptions = new List<ThemeOption>
+    public static readonly IReadOnlyList<PickerOption> ModelOptions = new List<PickerOption>
     {
-        new ThemeOption { Id = string.Empty, Name = "Claude Codes standard" },
-        new ThemeOption { Id = "sonnet", Name = "Sonnet" },
-        new ThemeOption { Id = "opus", Name = "Opus" },
-        new ThemeOption { Id = "fable", Name = "Fable" }
+        new PickerOption { Id = string.Empty, Name = "Claude Codes standard" },
+        new PickerOption { Id = "sonnet", Name = "Sonnet" },
+        new PickerOption { Id = "opus", Name = "Opus" },
+        new PickerOption { Id = "fable", Name = "Fable" }
     }.AsReadOnly();
 
-    public static readonly IReadOnlyList<ThemeOption> EffortOptions = new List<ThemeOption>
+    public static readonly IReadOnlyList<PickerOption> EffortOptions = new List<PickerOption>
     {
-        new ThemeOption { Id = string.Empty, Name = "Claude Codes standard" },
-        new ThemeOption { Id = "low", Name = "Low" },
-        new ThemeOption { Id = "medium", Name = "Medium" },
-        new ThemeOption { Id = "high", Name = "High" },
-        new ThemeOption { Id = "xhigh", Name = "X-High" },
-        new ThemeOption { Id = "max", Name = "Max" }
+        new PickerOption { Id = string.Empty, Name = "Claude Codes standard" },
+        new PickerOption { Id = "low", Name = "Low" },
+        new PickerOption { Id = "medium", Name = "Medium" },
+        new PickerOption { Id = "high", Name = "High" },
+        new PickerOption { Id = "xhigh", Name = "X-High" },
+        new PickerOption { Id = "max", Name = "Max" }
     }.AsReadOnly();
 }
 
@@ -139,7 +117,7 @@ public sealed class TerminalTabItem
     private static readonly FontWeight NormalWeight = new() { Weight = 400 };
     private static readonly FontWeight SemiBoldWeight = new() { Weight = 600 };
 
-    /// <summary>Fixed dampened-blue selection look for the active row — same for every project, unlike <see cref="AccentBarBrush"/>.</summary>
+    /// <summary>Fixed dampened-blue selection look for the active row.</summary>
     internal static readonly Brush ActiveBackgroundBrush = new SolidColorBrush(ParseHex("#3A7BD5", 0x26));
     internal static readonly Brush ActiveIndicatorBrush = new SolidColorBrush(ParseHex("#3A7BD5"));
 
@@ -149,7 +127,6 @@ public sealed class TerminalTabItem
     public Brush Background { get; set; } = TransparentBrush;
     public Brush OpenTabBackground { get; set; } = TransparentBrush;
     public Brush OpenTabBorderBrush { get; set; } = TransparentBrush;
-    public Brush AccentBarBrush { get; set; } = TransparentBrush;
     public Brush SelectionIndicatorBrush { get; set; } = TransparentBrush;
     public Brush TextBrush { get; set; } = TransparentBrush;
     public FontWeight NameFontWeight { get; set; } = NormalWeight;
@@ -176,8 +153,7 @@ public sealed class TerminalTabItem
         string name,
         bool isActive,
         SessionActivityStatus status,
-        bool showDoneFlash,
-        string workspaceAccentHex)
+        bool showDoneFlash)
     {
         var item = new TerminalTabItem
         {
@@ -197,10 +173,6 @@ public sealed class TerminalTabItem
             TextBrush = isActive
                 ? (Brush)Application.Current.Resources["AppTextPrimaryBrush"]
                 : (Brush)Application.Current.Resources["AppTextSecondaryBrush"],
-            // Every tab shows its own project's accent color, not just the active one — dimmer
-            // when inactive so the active tab still stands out, but never fully transparent,
-            // so a tab's project stays visually identifiable after switching away from it.
-            AccentBarBrush = new SolidColorBrush(ParseHex(workspaceAccentHex, isActive ? (byte)0xFF : (byte)0x70)),
             NameFontWeight = isActive ? SemiBoldWeight : NormalWeight
         };
 
@@ -283,10 +255,6 @@ public sealed partial class MainPage : Page
     private readonly WorkspaceStore _workspaceStore = new();
     private List<WorkspaceProfile> _workspaces = new();
 
-    private readonly AppSettingsStore _appSettingsStore = new();
-    private AppSettings _appSettings = new();
-    private bool _suppressAppThemeSelectionEvent;
-
     private Process? _helperProcess;
     private StreamWriter? _helperInput;
     private bool _webReady;
@@ -313,15 +281,10 @@ public sealed partial class MainPage : Page
 
         Services.UpdateService.UpdateReady += OnAppUpdateReady;
 
-        _appSettings = _appSettingsStore.Load();
         _workspaces = _workspaceStore.Load();
         BackfillDefaultClaudeSettings();
 
-        _suppressAppThemeSelectionEvent = true;
-        AppThemeComboBox.SelectedValue = _appSettings.ThemeId;
-        _suppressAppThemeSelectionEvent = false;
-
-        ApplyAppTheme();
+        RefreshWorkspaceList();
         ShowVersionInfo();
     }
 
@@ -616,9 +579,6 @@ public sealed partial class MainPage : Page
 
     private void RefreshWorkspaceList()
     {
-        AppTheme appDefaultTheme = AppThemes.Resolve(_appSettings.ThemeId);
-        IReadOnlyList<ThemeOption> themeOptions = WorkspaceListItem.BuildThemeOptions(appDefaultTheme.Name);
-
         string? activeWorkspaceId = _activeSessionId is Guid activeId && _sessions.TryGetValue(activeId, out TerminalSessionInfo? activeSession)
             ? activeSession.Profile.Id
             : null;
@@ -638,8 +598,6 @@ public sealed partial class MainPage : Page
                     Name = w.Name,
                     Path = w.Path,
                     StarGlyph = w.IsFavorite ? "★" : "☆",
-                    ThemeId = w.ThemeId ?? string.Empty,
-                    ThemeOptions = themeOptions,
                     PermissionMode = w.PermissionMode ?? string.Empty,
                     Model = w.Model ?? string.Empty,
                     Effort = w.Effort ?? string.Empty,
@@ -653,21 +611,6 @@ public sealed partial class MainPage : Page
 
         WorkspaceListView.ItemsSource = items;
         EmptyStateText.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    private void AppThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressAppThemeSelectionEvent)
-        {
-            return;
-        }
-
-        if (AppThemeComboBox.SelectedValue is string themeId && themeId != _appSettings.ThemeId)
-        {
-            _appSettings.ThemeId = themeId;
-            _appSettingsStore.Save(_appSettings);
-            ApplyAppTheme();
-        }
     }
 
     private bool _updateCheckInProgress;
@@ -844,41 +787,6 @@ public sealed partial class MainPage : Page
         }
     }
 
-    private void WorkspaceThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (sender is not ComboBox comboBox || comboBox.Tag is not string workspaceId)
-        {
-            return;
-        }
-
-        WorkspaceProfile? profile = _workspaces.FirstOrDefault(w => w.Id == workspaceId);
-        if (profile == null)
-        {
-            return;
-        }
-
-        string selectedThemeId = comboBox.SelectedValue as string ?? string.Empty;
-        string? newThemeId = string.IsNullOrEmpty(selectedThemeId) ? null : selectedThemeId;
-        if (profile.ThemeId == newThemeId)
-        {
-            return;
-        }
-
-        profile.ThemeId = newThemeId;
-        SaveWorkspaces();
-
-        foreach (KeyValuePair<Guid, TerminalSessionInfo> entry in _sessions)
-        {
-            if (entry.Value.Profile.Id == workspaceId)
-            {
-                PushSessionTheme(entry.Key, ResolveWorkspaceTheme(entry.Value.Profile));
-            }
-        }
-
-        ApplyActiveTheme();
-        RefreshTabStrip();
-    }
-
     private void WorkspacePermissionModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (sender is not ComboBox comboBox || comboBox.Tag is not string workspaceId)
@@ -933,86 +841,6 @@ public sealed partial class MainPage : Page
         SaveWorkspaces();
     }
 
-    private AppTheme ResolveWorkspaceTheme(WorkspaceProfile profile)
-    {
-        string themeId = string.IsNullOrEmpty(profile.ThemeId) ? _appSettings.ThemeId : profile.ThemeId;
-        return AppThemes.Resolve(themeId);
-    }
-
-    private void PushSessionTheme(Guid sessionId, AppTheme theme)
-    {
-        string id = sessionId.ToString("N");
-        string script = "window.appSetSessionTheme('" + id + "', '" +
-            EscapeForJavaScript(theme.TerminalBackgroundHex) + "', '" +
-            EscapeForJavaScript(theme.TerminalForegroundHex) + "', '" +
-            EscapeForJavaScript(theme.TerminalCursorHex) + "', '" +
-            EscapeForJavaScript(theme.TerminalSelectionRgba) + "');";
-        _ = ExecuteScriptAsync(script);
-    }
-
-    /// <summary>
-    /// Applies the selected AppTheme as the app-wide default. Rather than replacing brushes
-    /// on individual elements (which silently misses anything added later), this mutates the
-    /// shared brush resources in App.xaml in place — every element bound via
-    /// {StaticResource AppXyzBrush} repaints automatically, including inside flyouts.
-    /// The actual chrome (header, loading page, title bar) still ends up showing whichever
-    /// tab is active — see <see cref="ApplyActiveTheme"/>, called at the end of this — so a
-    /// tab with its own per-workspace theme override isn't stomped by a global theme change.
-    /// </summary>
-    private void ApplyAppTheme()
-    {
-        AppTheme theme = AppThemes.Resolve(_appSettings.ThemeId);
-
-        RefreshWorkspaceList();
-        RefreshTabStrip();
-
-        foreach (KeyValuePair<Guid, TerminalSessionInfo> entry in _sessions)
-        {
-            if (string.IsNullOrEmpty(entry.Value.Profile.ThemeId))
-            {
-                PushSessionTheme(entry.Key, theme);
-            }
-        }
-
-        ApplyActiveTheme();
-    }
-
-    /// <summary>
-    /// Repaints the shared chrome brushes (header/tab-strip background, buttons, the
-    /// "Startar Claude Code..." loading page, native title bar) to match whichever tab is
-    /// currently active — its own per-workspace theme override if it has one, otherwise the
-    /// app-wide default — or the app-wide default when no tab is open (showing the launcher).
-    /// Called whenever the active tab changes (open/switch/close) and whenever a theme
-    /// (app-wide or per-workspace) is edited.
-    /// </summary>
-    private void ApplyActiveTheme()
-    {
-        AppTheme theme = _activeSessionId is Guid activeId && _sessions.TryGetValue(activeId, out TerminalSessionInfo? activeSession)
-            ? ResolveWorkspaceTheme(activeSession.Profile)
-            : AppThemes.Resolve(_appSettings.ThemeId);
-
-        SetSharedBrushColor("AppPageBrush", TerminalTabItem.ParseHex(theme.PageBackgroundHex));
-        SetSharedBrushColor("AppSurfaceBrush", TerminalTabItem.ParseHex(theme.PanelBackgroundHex));
-        SetSharedBrushColor("AppSurfaceOverlayBrush", TerminalTabItem.ParseHex(theme.PanelBackgroundHex, 0xCC));
-        SetSharedBrushColor("AppAccentBrush", TerminalTabItem.ParseHex(theme.AccentHex));
-        SetSharedBrushColor("AppNeutralButtonBrush", Lighten(TerminalTabItem.ParseHex(theme.PanelBackgroundHex), 0.14));
-
-        (App.CurrentWindow as MainWindow)?.ApplyTitleBarTheme(theme);
-    }
-
-    private static void SetSharedBrushColor(string resourceKey, Color color)
-    {
-        if (Application.Current.Resources.TryGetValue(resourceKey, out object? value) && value is SolidColorBrush brush)
-        {
-            brush.Color = color;
-        }
-    }
-
-    private static Color Lighten(Color color, double amount)
-    {
-        byte Blend(byte channel) => (byte)(channel + (255 - channel) * amount);
-        return Color.FromArgb(color.A, Blend(color.R), Blend(color.G), Blend(color.B));
-    }
 
     private WorkspaceProfile? FindWorkspace(object? sender)
     {
@@ -1317,18 +1145,16 @@ public sealed partial class MainPage : Page
         SendOpenToHelper(sessionId, profile);
 
         _activeSessionId = sessionId;
-        ApplyActiveTheme();
         StatusOverlay.Visibility = Visibility.Collapsed;
         LoadingOverlay.Visibility = Visibility.Visible;
         RefreshTabStrip();
 
-        AppTheme theme = ResolveWorkspaceTheme(profile);
         string id = sessionId.ToString("N");
         string script = "window.appOpenSession('" + id + "', '" +
-            EscapeForJavaScript(theme.TerminalBackgroundHex) + "', '" +
-            EscapeForJavaScript(theme.TerminalForegroundHex) + "', '" +
-            EscapeForJavaScript(theme.TerminalCursorHex) + "', '" +
-            EscapeForJavaScript(theme.TerminalSelectionRgba) + "'); " +
+            EscapeForJavaScript(AppTheme.TerminalBackgroundHex) + "', '" +
+            EscapeForJavaScript(AppTheme.TerminalForegroundHex) + "', '" +
+            EscapeForJavaScript(AppTheme.TerminalCursorHex) + "', '" +
+            EscapeForJavaScript(AppTheme.TerminalSelectionRgba) + "'); " +
             "window.appSwitchSession('" + id + "');";
         _ = ExecuteScriptAsync(script);
         TerminalView.Focus(FocusState.Programmatic);
@@ -1342,7 +1168,6 @@ public sealed partial class MainPage : Page
         }
 
         _activeSessionId = sessionId;
-        ApplyActiveTheme();
         LoadingOverlay.Visibility = session.IsReady ? Visibility.Collapsed : Visibility.Visible;
 
         if (!string.IsNullOrEmpty(session.LastStatus))
@@ -1421,14 +1246,12 @@ public sealed partial class MainPage : Page
             .Select(id =>
             {
                 TerminalSessionInfo session = _sessions[id];
-                string accentHex = ResolveWorkspaceTheme(session.Profile).AccentHex;
                 return TerminalTabItem.For(
                     id.ToString("N"),
                     session.Profile.Name,
                     id == _activeSessionId,
                     session.Status,
-                    session.ShowDoneFlash,
-                    accentHex);
+                    session.ShowDoneFlash);
             })
             .ToList();
 
@@ -1537,7 +1360,6 @@ public sealed partial class MainPage : Page
     private void ReturnToLauncher()
     {
         _activeSessionId = null;
-        ApplyActiveTheme();
         RefreshTabStrip();
 
         UsageOverlay.Visibility = Visibility.Collapsed;

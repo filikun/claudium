@@ -12,13 +12,7 @@
                 <!-- Other merged dictionaries here -->
             </ResourceDictionary.MergedDictionaries>
 
-            <!--
-                Shared theme brushes — the selected AppTheme's colors, mutated in place
-                (MainPage.ApplyAppTheme) rather than replaced, so every element bound via
-                StaticResource repaints automatically when the user switches theme. Kept
-                to background/accent roles; text and status colors (favorite star,
-                destructive red) stay constant across themes — see AppTheme.cs.
-            -->
+            <!-- Shared chrome brushes — the app's single, fixed color scheme (no theme picker). -->
             <SolidColorBrush x:Key="AppPageBrush" Color="#E0151C2C" />
             <SolidColorBrush x:Key="AppSurfaceBrush" Color="#E01B2638" />
             <SolidColorBrush x:Key="AppSurfaceOverlayBrush" Color="#CC1B2638" />

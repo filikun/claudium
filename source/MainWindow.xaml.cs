@@ -2,7 +2,6 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Windows.Graphics;
 using Claudium.Models;
-using Claudium.Services;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -29,31 +28,25 @@ public sealed partial class MainWindow : Window
         // Keeps the window usable at any size the user drags it to.
         AppWindow.Changed += AppWindow_Changed;
 
-        // App.CurrentWindow isn't assigned until after this constructor returns, so
-        // MainPage.ApplyAppTheme() (which runs during Navigate below) can't reach this
-        // window yet to color the title bar. Set the initial color directly here instead;
-        // ApplyTitleBarTheme is called again on every later theme change via CurrentWindow.
-        AppSettings initialSettings = new AppSettingsStore().Load();
-        ApplyTitleBarTheme(AppThemes.Resolve(initialSettings.ThemeId));
+        ApplyTitleBarColors();
 
         // Navigate the root frame to the main page on startup.
         RootFrame.Navigate(typeof(MainPage));
     }
 
     /// <summary>
-    /// Recolors the native title bar chrome (min/max/close buttons, background) to match
-    /// the selected AppTheme. This is Win32 window-chrome state, not XAML — it can't be
-    /// bound via StaticResource like the rest of the app, so MainPage.ApplyAppTheme calls
-    /// this explicitly whenever the theme changes.
+    /// Recolors the native title bar chrome (min/max/close buttons, background) to match the
+    /// app's fixed color scheme. This is Win32 window-chrome state, not XAML — it can't be
+    /// bound via StaticResource like the rest of the app, so it's set explicitly once here.
     /// </summary>
-    public void ApplyTitleBarTheme(AppTheme theme)
+    private void ApplyTitleBarColors()
     {
         if (!AppWindowTitleBar.IsCustomizationSupported())
         {
             return;
         }
 
-        Windows.UI.Color surface = ColorFromHex(theme.PanelBackgroundHex);
+        Windows.UI.Color surface = ColorFromHex(AppTheme.PanelBackgroundHex);
         Windows.UI.Color textPrimary = ColorFromHex("#F7F8FC");
         Windows.UI.Color textSecondary = ColorFromHex("#BEC4D6");
         Windows.UI.Color hover = Lighten(surface, 0.10);
