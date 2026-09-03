@@ -458,247 +458,104 @@
 
         <!-- ============================== Right panel ============================== -->
         <Grid Grid.Row="0" Grid.Column="1">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
+            <!-- Kept for the existing active-session chrome update path. -->
+            <Ellipse x:Name="ContextStatusDot" Width="0" Height="0" />
+            <TextBlock x:Name="ActiveSessionNameText" Visibility="Collapsed" />
 
-            <!-- Thin context row: active session -->
-            <Border x:Name="ActiveContextRow"
-                    Grid.Row="0"
-                    Height="48"
-                    Background="{StaticResource AppSurfaceBrush}"
-                    BorderBrush="{StaticResource AppDividerBrush}"
-                    BorderThickness="0,0,0,1"
-                    Padding="12,0"
-                    Visibility="Collapsed">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
-                    <!-- Tabs live in the native title bar now; keep this legacy in-page tab strip out of view. -->
-                    <StackPanel Grid.Column="0"
-                                Orientation="Horizontal"
-                                VerticalAlignment="Bottom"
-                                Visibility="Collapsed">
-                        <ListView x:Name="OpenSessionTabsListView"
-                                  IsItemClickEnabled="True"
-                                  ItemClick="OpenSessionTabsListView_ItemClick"
-                                  SelectionMode="None"
-                                  Background="Transparent"
-                                  HorizontalAlignment="Left">
-                            <ListView.Resources>
-                                <SolidColorBrush x:Key="ListViewItemBackground" Color="Transparent" />
-                                <SolidColorBrush x:Key="ListViewItemBackgroundPointerOver" Color="Transparent" />
-                                <SolidColorBrush x:Key="ListViewItemBackgroundPressed" Color="Transparent" />
-                                <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="Transparent" />
-                                <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="Transparent" />
-                                <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="Transparent" />
-                            </ListView.Resources>
-                            <ListView.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal" />
-                                </ItemsPanelTemplate>
-                            </ListView.ItemsPanel>
-                            <ListView.ItemContainerStyle>
-                                <Style TargetType="ListViewItem">
-                                    <Setter Property="Padding" Value="0" />
-                                    <Setter Property="Margin" Value="0,4,2,0" />
-                                </Style>
-                            </ListView.ItemContainerStyle>
-                            <ListView.ItemTemplate>
-                                <DataTemplate x:DataType="local:TerminalTabItem">
-                                    <Border Width="128"
-                                            Height="44"
-                                            Background="{x:Bind OpenTabBackground}"
-                                            BorderBrush="{x:Bind OpenTabBorderBrush}"
-                                            BorderThickness="1,1,1,0"
-                                            CornerRadius="6,6,0,0"
-                                            Padding="8,0">
-                                        <Grid ColumnSpacing="6">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="6" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="18" />
-                                            </Grid.ColumnDefinitions>
-                                            <Ellipse Width="6"
-                                                     Height="6"
-                                                     Fill="{x:Bind StatusDotBrush}"
-                                                     VerticalAlignment="Center"
-                                                     Visibility="{x:Bind StatusDotVisibility}"
-                                                     Loaded="StatusDot_Loaded"
-                                                     Tag="{x:Bind StatusDotAnimation}" />
-                                            <TextBlock Grid.Column="1"
-                                                       Text="{x:Bind Name}"
-                                                       Foreground="{x:Bind TextBrush}"
-                                                       FontSize="13"
-                                                       FontWeight="{x:Bind NameFontWeight}"
-                                                       VerticalAlignment="Center"
-                                                       TextTrimming="CharacterEllipsis" />
-                                            <Button Grid.Column="2"
-                                                    Width="18"
-                                                    Height="18"
-                                                    Padding="0"
-                                                    FontSize="9"
-                                                    Background="Transparent"
-                                                    Foreground="{StaticResource AppTextSecondaryBrush}"
-                                                    BorderThickness="0"
-                                                    CornerRadius="4"
-                                                    Tag="{x:Bind SessionId}"
-                                                    Click="CloseTabButton_Click"
-                                                    ToolTipService.ToolTip="Stäng flik">
-                                                <SymbolIcon Symbol="Cancel" Style="{StaticResource CompactActionSymbolIcon}" />
-                                            </Button>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ListView.ItemTemplate>
-                        </ListView>
-
-                        <Button Width="32"
-                                Height="32"
-                                Padding="0"
-                                FontSize="14"
-                                Margin="4,8,0,0"
-                                Background="Transparent"
-                                Foreground="{StaticResource AppTextSecondaryBrush}"
-                                BorderThickness="0"
-                                CornerRadius="4"
-                                Click="AddTabButton_Click"
-                                ToolTipService.ToolTip="Starta ny session">
-                            <SymbolIcon Symbol="Add" Style="{StaticResource CompactAddSymbolIcon}" />
-                        </Button>
-                    </StackPanel>
-
-                    <TabView x:Name="OpenSessionTabsView"
-                             Grid.Column="0"
-                             Visibility="Collapsed"
-                             Background="Transparent"
-                             BorderThickness="0"
-                             TabWidthMode="SizeToContent"
-                             IsAddTabButtonVisible="True"
-                             CanDragTabs="False"
-                             CanReorderTabs="False"
-                             SelectionChanged="OpenSessionTabsView_SelectionChanged"
-                             AddTabButtonClick="OpenSessionTabsView_AddTabButtonClick"
-                             TabCloseRequested="OpenSessionTabsView_TabCloseRequested">
-                        <TabView.TabItemTemplate>
-                            <DataTemplate x:DataType="local:TerminalTabItem">
-                                <TabViewItem IsClosable="True" Tag="{x:Bind SessionId}">
-                                    <TabViewItem.Header>
-                                        <TextBlock Text="{x:Bind Name}"
-                                                   Foreground="{x:Bind TextBrush}"
-                                                   FontSize="13"
-                                                   FontWeight="{x:Bind NameFontWeight}"
-                                                   MaxWidth="150"
-                                                   TextTrimming="CharacterEllipsis" />
-                                    </TabViewItem.Header>
-                                </TabViewItem>
-                            </DataTemplate>
-                        </TabView.TabItemTemplate>
-                    </TabView>
-
-                    <!-- Kept for the existing active-session chrome update path. -->
-                    <Ellipse x:Name="ContextStatusDot" Width="0" Height="0" />
-                    <TextBlock x:Name="ActiveSessionNameText" Visibility="Collapsed" />
-
-                    <StackPanel Grid.Column="1"
-                                Orientation="Horizontal"
-                                Spacing="6"
-                                VerticalAlignment="Center">
-                        <Button x:Name="AttachFileButton"
-                                Width="28"
-                                Height="28"
-                                Padding="0"
-                                FontSize="11"
-                                Click="AttachFileButton_Click"
-                                Background="Transparent"
-                                Foreground="{StaticResource AppTextSecondaryBrush}"
-                                BorderThickness="0"
-                                CornerRadius="16"
-                                VerticalAlignment="Center"
-                                ToolTipService.ToolTip="Bifoga fil till Claude">
-                            <SymbolIcon Symbol="Attach" Style="{StaticResource CompactActionSymbolIcon}" />
-                        </Button>
-
-                        <Button x:Name="SessionSettingsButton"
-                                Width="28"
-                                Height="28"
-                                Padding="0"
-                                FontSize="11"
-                                Background="Transparent"
-                                Foreground="{StaticResource AppTextSecondaryBrush}"
-                                BorderThickness="0"
-                                CornerRadius="16"
-                                VerticalAlignment="Center"
-                                ToolTipService.ToolTip="Byt permission mode, modell eller effort för denna session">
-                            <SymbolIcon Symbol="Setting" Style="{StaticResource CompactActionSymbolIcon}" />
-                            <Button.Flyout>
-                            <Flyout x:Name="SessionSettingsFlyout" Placement="Bottom" Opening="SessionSettingsFlyout_Opening">
-                                <Flyout.FlyoutPresenterStyle>
-                                    <Style TargetType="FlyoutPresenter">
-                                        <Setter Property="Background" Value="{StaticResource AppSurfaceBrush}" />
-                                        <Setter Property="CornerRadius" Value="8" />
-                                    </Style>
-                                </Flyout.FlyoutPresenterStyle>
-                                <StackPanel Spacing="10" MinWidth="200">
-                                    <TextBlock Text="Claude-inställningar (denna session)" Foreground="{StaticResource AppTextPrimaryBrush}" FontSize="13" FontWeight="SemiBold" TextWrapping="WrapWholeWords" />
-
-                                    <StackPanel Spacing="4">
-                                        <TextBlock Text="Modell" Foreground="{StaticResource AppTextSecondaryBrush}" FontSize="12" />
-                                        <ComboBox x:Name="SessionModelComboBox"
-                                                  SelectedValuePath="Tag"
-                                                  SelectionChanged="SessionModelComboBox_SelectionChanged"
-                                                  HorizontalAlignment="Stretch">
-                                            <ComboBoxItem Content="Sonnet" Tag="sonnet" />
-                                            <ComboBoxItem Content="Opus" Tag="opus" />
-                                            <ComboBoxItem Content="Fable" Tag="fable" />
-                                        </ComboBox>
-                                    </StackPanel>
-
-                                    <StackPanel Spacing="4">
-                                        <TextBlock Text="Effort" Foreground="{StaticResource AppTextSecondaryBrush}" FontSize="12" />
-                                        <ComboBox x:Name="SessionEffortComboBox"
-                                                  SelectedValuePath="Tag"
-                                                  SelectionChanged="SessionEffortComboBox_SelectionChanged"
-                                                  HorizontalAlignment="Stretch">
-                                            <ComboBoxItem Content="Low" Tag="low" />
-                                            <ComboBoxItem Content="Medium" Tag="medium" />
-                                            <ComboBoxItem Content="High" Tag="high" />
-                                            <ComboBoxItem Content="X-High" Tag="xhigh" />
-                                            <ComboBoxItem Content="Max" Tag="max" />
-                                        </ComboBox>
-                                    </StackPanel>
-                                </StackPanel>
-                            </Flyout>
-                        </Button.Flyout>
-                        </Button>
-
-                        <Button Width="28"
-                                Height="28"
-                                Padding="0"
-                                FontSize="11"
-                                Click="CloseActiveSessionButton_Click"
-                                Background="Transparent"
-                                Foreground="{StaticResource AppTextSecondaryBrush}"
-                                BorderThickness="0"
-                                CornerRadius="16"
-                                VerticalAlignment="Center"
-                                ToolTipService.ToolTip="Stäng session">
-                            <SymbolIcon Symbol="Cancel" Style="{StaticResource CompactActionSymbolIcon}" />
-                        </Button>
-                    </StackPanel>
-                </Grid>
-            </Border>
-
-            <!-- Terminal surface -->
-            <Grid Grid.Row="1">
+            <!-- Terminal surface — full page; session switching lives in the sidebar. -->
+            <Grid>
                 <WebView2 x:Name="TerminalView"
                           HorizontalAlignment="Stretch"
                           VerticalAlignment="Stretch"
                           Margin="0" />
+
+                <!--
+                    Small corner menu for the active session's own actions (attach file, model,
+                    effort, close) — deliberately not a full-width bar, so the terminal gets the
+                    whole page instead of losing a strip of height to it.
+                -->
+                <Button x:Name="SessionActionsButton"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Margin="0,10,14,0"
+                        Width="32"
+                        Height="32"
+                        Padding="0"
+                        CornerRadius="16"
+                        Background="{StaticResource AppSurfaceOverlayBrush}"
+                        Foreground="{StaticResource AppTextSecondaryBrush}"
+                        BorderThickness="0"
+                        Visibility="Collapsed"
+                        ToolTipService.ToolTip="Sessionsåtgärder">
+                    <SymbolIcon Symbol="More" />
+                    <Button.Flyout>
+                        <Flyout x:Name="SessionActionsFlyout" Placement="BottomEdgeAlignedRight" Opening="SessionSettingsFlyout_Opening">
+                            <Flyout.FlyoutPresenterStyle>
+                                <Style TargetType="FlyoutPresenter">
+                                    <Setter Property="Background" Value="{StaticResource AppSurfaceBrush}" />
+                                    <Setter Property="CornerRadius" Value="8" />
+                                </Style>
+                            </Flyout.FlyoutPresenterStyle>
+                            <StackPanel Spacing="10" MinWidth="200">
+                                <TextBlock Text="Claude-inställningar (denna session)" Foreground="{StaticResource AppTextPrimaryBrush}" FontSize="13" FontWeight="SemiBold" TextWrapping="WrapWholeWords" />
+
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Modell" Foreground="{StaticResource AppTextSecondaryBrush}" FontSize="12" />
+                                    <ComboBox x:Name="SessionModelComboBox"
+                                              SelectedValuePath="Tag"
+                                              SelectionChanged="SessionModelComboBox_SelectionChanged"
+                                              HorizontalAlignment="Stretch">
+                                        <ComboBoxItem Content="Sonnet" Tag="sonnet" />
+                                        <ComboBoxItem Content="Opus" Tag="opus" />
+                                        <ComboBoxItem Content="Fable" Tag="fable" />
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Effort" Foreground="{StaticResource AppTextSecondaryBrush}" FontSize="12" />
+                                    <ComboBox x:Name="SessionEffortComboBox"
+                                              SelectedValuePath="Tag"
+                                              SelectionChanged="SessionEffortComboBox_SelectionChanged"
+                                              HorizontalAlignment="Stretch">
+                                        <ComboBoxItem Content="Low" Tag="low" />
+                                        <ComboBoxItem Content="Medium" Tag="medium" />
+                                        <ComboBoxItem Content="High" Tag="high" />
+                                        <ComboBoxItem Content="X-High" Tag="xhigh" />
+                                        <ComboBoxItem Content="Max" Tag="max" />
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <Rectangle Height="1" Fill="{StaticResource AppDividerBrush}" Margin="0,2" />
+
+                                <Button Click="AttachFileButton_Click"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Left"
+                                        Padding="0"
+                                        Foreground="{StaticResource AppTextPrimaryBrush}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <SymbolIcon Symbol="Attach" />
+                                        <TextBlock Text="Bifoga fil" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+
+                                <Button Click="CloseActiveSessionButton_Click"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Left"
+                                        Padding="0"
+                                        Foreground="{StaticResource AppDangerBrush}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <SymbolIcon Symbol="Cancel" />
+                                        <TextBlock Text="Stäng session" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Flyout>
+                    </Button.Flyout>
+                </Button>
 
                 <Border x:Name="StatusOverlay"
                         HorizontalAlignment="Left"

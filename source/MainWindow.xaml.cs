@@ -1,11 +1,6 @@
-using System.Collections.ObjectModel;
-using System.Linq;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Input;
 using Windows.Graphics;
-using WinRT.Interop;
 using Claudium.Models;
 using Claudium.Services;
 
@@ -21,28 +16,17 @@ namespace Claudium;
 /// </summary>
 public sealed partial class MainWindow : Window
 {
-    /// <summary>
-    /// Bound once for the window's lifetime — see the remarks on <see cref="UpdateTitleBarTabs"/>
-    /// for why this must never be reassigned wholesale.
-    /// </summary>
-    private readonly ObservableCollection<TerminalTabItem> _titleBarTabs = new();
-
     public MainWindow()
     {
         InitializeComponent();
-
-        TitleBarTabsView.TabItemsSource = _titleBarTabs;
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
 
         AppWindow.SetIcon("Assets/AppIcon.ico");
         AppWindow.Resize(new SizeInt32(980, 860));
-        UpdateTitleBarContentWidth(AppWindow.Size.Width);
 
-        // Without a floor, the window can be dragged down to a size where the fixed
-        // title-bar margins (see MainWindow.xaml) leave zero room for the session tabs,
-        // making them appear to vanish. Clamping here keeps them reachable at any size.
+        // Keeps the window usable at any size the user drags it to.
         AppWindow.Changed += AppWindow_Changed;
 
         // App.CurrentWindow isn't assigned until after this constructor returns, so
@@ -89,8 +73,6 @@ public sealed partial class MainWindow : Window
 
     private const int MinWindowWidth = 960;
     private const int MinWindowHeight = 760;
-    private const int TitleBarSideReserve = 260;
-    private bool _isSynchronizingTitleBarTabs;
 
     private void AppWindow_Changed(AppWindow sender, AppWindowChangedEventArgs args)
     {
@@ -102,131 +84,9 @@ public sealed partial class MainWindow : Window
         SizeInt32 size = sender.Size;
         int width = System.Math.Max(size.Width, MinWindowWidth);
         int height = System.Math.Max(size.Height, MinWindowHeight);
-        UpdateTitleBarContentWidth(width);
         if (width != size.Width || height != size.Height)
         {
             sender.Resize(new SizeInt32(width, height));
-        }
-    }
-
-    private void UpdateTitleBarContentWidth(int windowWidth)
-    {
-        // TitleBar centers custom content. Giving it the full usable width keeps the
-        // tab strip's left edge anchored just after the native icon and app title.
-        TitleBarContentHost.Width = System.Math.Max(0, windowWidth - TitleBarSideReserve);
-    }
-
-    /// <summary>
-    /// Keeps the title-bar tabs synchronized with the page's session list.
-    /// </summary>
-    /// <remarks>
-    /// The caller rebuilds its whole <see cref="TerminalTabItem"/> list from scratch on
-    /// every refresh (open/close/status tick/switch — this runs very often). Wholesale
-    /// reassigning <see cref="TabView.TabItemsSource"/> each time forces TabView to tear
-    /// down and re-realize every tab container; when that races a container still being
-    /// realized (typically the most-recently-touched, i.e. active, tab), that tab's
-    /// container can end up never added to the visual tree and the tab simply vanishes.
-    /// Instead we keep one persistent <see cref="ObservableCollection{T}"/> bound for the
-    /// lifetime of the window and reconcile it in place (insert/remove/update-in-place via
-    /// <see cref="TerminalTabItem.UpdateFrom"/>), so TabView only ever sees the specific,
-    /// small change that actually happened instead of a full teardown.
-    /// </remarks>
-    public void UpdateTitleBarTabs(IReadOnlyList<TerminalTabItem> items)
-    {
-        _isSynchronizingTitleBarTabs = true;
-        try
-        {
-            for (int i = _titleBarTabs.Count - 1; i >= 0; i--)
-            {
-                if (!items.Any(item => item.SessionId == _titleBarTabs[i].SessionId))
-                {
-                    _titleBarTabs.RemoveAt(i);
-                }
-            }
-
-            for (int targetIndex = 0; targetIndex < items.Count; targetIndex++)
-            {
-                TerminalTabItem source = items[targetIndex];
-                int currentIndex = -1;
-                for (int i = 0; i < _titleBarTabs.Count; i++)
-                {
-                    if (_titleBarTabs[i].SessionId == source.SessionId)
-                    {
-                        currentIndex = i;
-                        break;
-                    }
-                }
-
-                if (currentIndex < 0)
-                {
-                    _titleBarTabs.Insert(targetIndex, source);
-                }
-                else
-                {
-                    if (currentIndex != targetIndex)
-                    {
-                        TerminalTabItem existing = _titleBarTabs[currentIndex];
-                        _titleBarTabs.RemoveAt(currentIndex);
-                        _titleBarTabs.Insert(targetIndex, existing);
-                    }
-
-                    _titleBarTabs[targetIndex].UpdateFrom(source);
-                }
-            }
-
-            TerminalTabItem? active = _titleBarTabs.FirstOrDefault(item => item.IsActive);
-            if (!ReferenceEquals(TitleBarTabsView.SelectedItem, active))
-            {
-                TitleBarTabsView.SelectedItem = active;
-            }
-        }
-        finally
-        {
-            _isSynchronizingTitleBarTabs = false;
-        }
-    }
-
-    private MainPage? CurrentPage => RootFrame.Content as MainPage;
-
-    private void TitleBarTab_Tapped(object sender, TappedRoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { Tag: string sessionId })
-        {
-            CurrentPage?.ActivateTabFromTitleBar(sessionId);
-        }
-    }
-
-    private void TitleBarCloseTabButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is Button { Tag: string sessionId })
-        {
-            CurrentPage?.CloseTabFromTitleBar(sessionId);
-        }
-    }
-
-    private void TitleBarAddTabButton_Click(object sender, RoutedEventArgs e)
-    {
-        CurrentPage?.StartNewTabFromTitleBar();
-    }
-
-    private void TitleBarTabsView_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (!_isSynchronizingTitleBarTabs && TitleBarTabsView.SelectedItem is TerminalTabItem item)
-        {
-            CurrentPage?.ActivateTabFromTitleBar(item.SessionId);
-        }
-    }
-
-    private void TitleBarTabsView_AddTabButtonClick(TabView sender, object args)
-    {
-        CurrentPage?.StartNewTabFromTitleBar();
-    }
-
-    private void TitleBarTabsView_TabCloseRequested(TabView sender, TabViewTabCloseRequestedEventArgs args)
-    {
-        if (args.Item is TerminalTabItem item)
-        {
-            CurrentPage?.CloseTabFromTitleBar(item.SessionId);
         }
     }
 

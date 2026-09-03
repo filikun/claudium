@@ -18,138 +18,17 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <!--
+            Session switching lives entirely in MainPage's left sidebar (Recent sessions) now,
+            so the title bar just shows the app identity — no custom tab strip.
+        -->
         <TitleBar x:Name="AppTitleBar"
+                  Title="Claudium"
                   Background="{StaticResource AppSurfaceBrush}"
-                  Foreground="{StaticResource AppTextPrimaryBrush}"
-                  HorizontalContentAlignment="Left">
+                  Foreground="{StaticResource AppTextPrimaryBrush}">
             <TitleBar.IconSource>
                 <ImageIconSource ImageSource="Assets/AppIcon.png" />
             </TitleBar.IconSource>
-            <TitleBar.Content>
-                <!-- The native caption buttons keep their reserved space at the right. -->
-                <Grid x:Name="TitleBarContentHost"
-                      Margin="0,0,152,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="96" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0"
-                               Text="Claudium"
-                               VerticalAlignment="Center"
-                               Foreground="{StaticResource AppTextPrimaryBrush}"
-                               FontSize="13"
-                               FontWeight="SemiBold"
-                               TextTrimming="CharacterEllipsis" />
-                    <ScrollViewer Grid.Column="0"
-                                  Visibility="Collapsed"
-                                  HorizontalScrollBarVisibility="Auto"
-                                  HorizontalScrollMode="Enabled"
-                                  VerticalScrollMode="Disabled"
-                                  VerticalAlignment="Bottom">
-                        <ItemsRepeater x:Name="TitleBarTabsRepeater"
-                                       HorizontalAlignment="Left">
-                            <ItemsRepeater.Layout>
-                                <StackLayout Orientation="Horizontal" Spacing="2" />
-                            </ItemsRepeater.Layout>
-                            <ItemsRepeater.ItemTemplate>
-                                <DataTemplate x:DataType="local:TerminalTabItem">
-                                    <Grid Width="104"
-                                          Height="40"
-                                          Margin="0,4,0,0"
-                                          Tag="{x:Bind SessionId}"
-                                          Tapped="TitleBarTab_Tapped">
-                                        <Border Background="{x:Bind OpenTabBackground}"
-                                                BorderBrush="{x:Bind OpenTabBorderBrush}"
-                                                BorderThickness="1,1,1,0"
-                                                CornerRadius="6,6,0,0"
-                                                Padding="8,0">
-                                            <Grid ColumnSpacing="6">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="6" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="18" />
-                                            </Grid.ColumnDefinitions>
-                                            <Ellipse Width="6"
-                                                     Height="6"
-                                                     Fill="{x:Bind StatusDotBrush}"
-                                                     VerticalAlignment="Center"
-                                                     Visibility="{x:Bind StatusDotVisibility}" />
-                                            <TextBlock Grid.Column="1"
-                                                       Text="{x:Bind Name}"
-                                                       Foreground="{x:Bind TextBrush}"
-                                                       FontSize="12"
-                                                       FontWeight="{x:Bind NameFontWeight}"
-                                                       VerticalAlignment="Center"
-                                                       TextTrimming="CharacterEllipsis" />
-                                            <Button Grid.Column="2"
-                                                    Width="18"
-                                                    Height="18"
-                                                    Padding="0"
-                                                    FontSize="9"
-                                                    Background="Transparent"
-                                                    Foreground="{StaticResource AppTextSecondaryBrush}"
-                                                    BorderThickness="0"
-                                                    CornerRadius="4"
-                                                    Tag="{x:Bind SessionId}"
-                                                    Click="TitleBarCloseTabButton_Click"
-                                                    ToolTipService.ToolTip="Stäng flik">
-                                                <SymbolIcon Symbol="Cancel" />
-                                            </Button>
-                                        </Grid>
-                                        </Border>
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsRepeater.ItemTemplate>
-                        </ItemsRepeater>
-                    </ScrollViewer>
-
-                        <Button Grid.Column="1"
-                                Visibility="Collapsed"
-                                Width="28"
-                                Height="28"
-                                Padding="0"
-                                FontSize="14"
-                                Margin="4,8,0,0"
-                                Background="Transparent"
-                                Foreground="{StaticResource AppTextSecondaryBrush}"
-                                BorderThickness="0"
-                                CornerRadius="4"
-                                Click="TitleBarAddTabButton_Click"
-                                ToolTipService.ToolTip="Starta ny session">
-                            <SymbolIcon Symbol="Add" />
-                        </Button>
-
-                    <TabView x:Name="TitleBarTabsView"
-                             Grid.Column="1"
-                             Height="44"
-                             HorizontalAlignment="Stretch"
-                             HorizontalContentAlignment="Left"
-                             Background="Transparent"
-                             BorderThickness="0"
-                             TabWidthMode="SizeToContent"
-                             IsAddTabButtonVisible="False"
-                             CanDragTabs="False"
-                             CanReorderTabs="False"
-                             SelectionChanged="TitleBarTabsView_SelectionChanged"
-                             AddTabButtonClick="TitleBarTabsView_AddTabButtonClick"
-                             TabCloseRequested="TitleBarTabsView_TabCloseRequested">
-                        <TabView.TabItemTemplate>
-                            <DataTemplate x:DataType="local:TerminalTabItem">
-                                <TabViewItem IsClosable="True">
-                                    <TabViewItem.Header>
-                                        <TextBlock Text="{x:Bind Name, Mode=OneWay}"
-                                                   Foreground="{x:Bind TextBrush, Mode=OneWay}"
-                                                   FontSize="13"
-                                                   FontWeight="{x:Bind NameFontWeight, Mode=OneWay}"
-                                                   MaxWidth="150"
-                                                   TextTrimming="CharacterEllipsis" />
-                                    </TabViewItem.Header>
-                                </TabViewItem>
-                            </DataTemplate>
-                        </TabView.TabItemTemplate>
-                    </TabView>
-                </Grid>
-            </TitleBar.Content>
         </TitleBar>
 
         <!--

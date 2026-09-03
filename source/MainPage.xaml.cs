@@ -10,7 +10,6 @@ using System.Text.RegularExpressions;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.Web.WebView2.Core;
 using Windows.UI;
 using Windows.UI.Text;
@@ -132,7 +131,7 @@ public enum SessionActivityStatus
 /// Display row for the tab strip. Kept separate from <see cref="TerminalSessionInfo"/>
 /// so the XAML DataTemplate only ever sees plain, pre-formatted values.
 /// </summary>
-public sealed class TerminalTabItem : System.ComponentModel.INotifyPropertyChanged
+public sealed class TerminalTabItem
 {
     private static readonly Brush TransparentBrush = new SolidColorBrush(Color.FromArgb(0x00, 0x00, 0x00, 0x00));
     private static readonly Brush WorkingBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0x7E, 0xDB, 0xFF));
@@ -144,57 +143,20 @@ public sealed class TerminalTabItem : System.ComponentModel.INotifyPropertyChang
     internal static readonly Brush ActiveBackgroundBrush = new SolidColorBrush(ParseHex("#3A7BD5", 0x26));
     internal static readonly Brush ActiveIndicatorBrush = new SolidColorBrush(ParseHex("#3A7BD5"));
 
-    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
-
-    private void Raise([System.Runtime.CompilerServices.CallerMemberName] string? name = null)
-        => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
-
-    private string _name = string.Empty;
-    private bool _isActive;
-    private Brush _background = TransparentBrush;
-    private Brush _openTabBackground = TransparentBrush;
-    private Brush _openTabBorderBrush = TransparentBrush;
-    private Brush _accentBarBrush = TransparentBrush;
-    private Brush _selectionIndicatorBrush = TransparentBrush;
-    private Brush _textBrush = TransparentBrush;
-    private FontWeight _nameFontWeight = NormalWeight;
-    private Visibility _statusDotVisibility = Visibility.Collapsed;
-    private Brush _statusDotBrush = TransparentBrush;
-    private string _statusDotAnimation = "static";
-    private string _statusDotTooltip = string.Empty;
-
     public string SessionId { get; set; } = string.Empty;
-    public string Name { get => _name; set { _name = value; Raise(); } }
-    public bool IsActive { get => _isActive; set { _isActive = value; Raise(); } }
-    public Brush Background { get => _background; set { _background = value; Raise(); } }
-    public Brush OpenTabBackground { get => _openTabBackground; set { _openTabBackground = value; Raise(); } }
-    public Brush OpenTabBorderBrush { get => _openTabBorderBrush; set { _openTabBorderBrush = value; Raise(); } }
-    public Brush AccentBarBrush { get => _accentBarBrush; set { _accentBarBrush = value; Raise(); } }
-    public Brush SelectionIndicatorBrush { get => _selectionIndicatorBrush; set { _selectionIndicatorBrush = value; Raise(); } }
-    public Brush TextBrush { get => _textBrush; set { _textBrush = value; Raise(); } }
-    public FontWeight NameFontWeight { get => _nameFontWeight; set { _nameFontWeight = value; Raise(); } }
-    public Visibility StatusDotVisibility { get => _statusDotVisibility; set { _statusDotVisibility = value; Raise(); } }
-    public Brush StatusDotBrush { get => _statusDotBrush; set { _statusDotBrush = value; Raise(); } }
-    public string StatusDotAnimation { get => _statusDotAnimation; set { _statusDotAnimation = value; Raise(); } }
-    public string StatusDotTooltip { get => _statusDotTooltip; set { _statusDotTooltip = value; Raise(); } }
-
-    /// <summary>Copies every mutable display property from <paramref name="other"/> onto this instance, raising change notifications instead of replacing the object — see <see cref="MainWindow.UpdateTitleBarTabs"/> for why identity must be preserved.</summary>
-    public void UpdateFrom(TerminalTabItem other)
-    {
-        Name = other.Name;
-        IsActive = other.IsActive;
-        Background = other.Background;
-        OpenTabBackground = other.OpenTabBackground;
-        OpenTabBorderBrush = other.OpenTabBorderBrush;
-        AccentBarBrush = other.AccentBarBrush;
-        SelectionIndicatorBrush = other.SelectionIndicatorBrush;
-        TextBrush = other.TextBrush;
-        NameFontWeight = other.NameFontWeight;
-        StatusDotVisibility = other.StatusDotVisibility;
-        StatusDotBrush = other.StatusDotBrush;
-        StatusDotAnimation = other.StatusDotAnimation;
-        StatusDotTooltip = other.StatusDotTooltip;
-    }
+    public string Name { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
+    public Brush Background { get; set; } = TransparentBrush;
+    public Brush OpenTabBackground { get; set; } = TransparentBrush;
+    public Brush OpenTabBorderBrush { get; set; } = TransparentBrush;
+    public Brush AccentBarBrush { get; set; } = TransparentBrush;
+    public Brush SelectionIndicatorBrush { get; set; } = TransparentBrush;
+    public Brush TextBrush { get; set; } = TransparentBrush;
+    public FontWeight NameFontWeight { get; set; } = NormalWeight;
+    public Visibility StatusDotVisibility { get; set; } = Visibility.Collapsed;
+    public Brush StatusDotBrush { get; set; } = TransparentBrush;
+    public string StatusDotAnimation { get; set; } = "static";
+    public string StatusDotTooltip { get; set; } = string.Empty;
 
     /// <summary>Parses #RRGGBB or #AARRGGBB, optionally overriding the source alpha.</summary>
     public static Color ParseHex(string hex, byte? alpha = null)
@@ -630,6 +592,8 @@ public sealed partial class MainPage : Page
     /// </summary>
     private void AttachFileButton_Click(object sender, RoutedEventArgs e)
     {
+        SessionActionsFlyout.Hide();
+
         if (_activeSessionId is not Guid sessionId || !_sessions.TryGetValue(sessionId, out TerminalSessionInfo? session))
         {
             return;
@@ -1450,64 +1414,6 @@ public sealed partial class MainPage : Page
         }
     }
 
-    private void OpenSessionTabsListView_ItemClick(object sender, ItemClickEventArgs e)
-    {
-        if (e.ClickedItem is TerminalTabItem item &&
-            Guid.TryParse(item.SessionId, out Guid sessionId) &&
-            sessionId != _activeSessionId)
-        {
-            SwitchToTab(sessionId);
-        }
-    }
-
-    private void OpenSessionTabsView_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressTabSelectionEvent || OpenSessionTabsView.SelectedItem is not TerminalTabItem item)
-        {
-            return;
-        }
-
-        if (Guid.TryParse(item.SessionId, out Guid sessionId) && sessionId != _activeSessionId)
-        {
-            SwitchToTab(sessionId);
-        }
-    }
-
-    private void OpenSessionTabsView_AddTabButtonClick(TabView sender, object args)
-    {
-        ShowLauncherForNewTab();
-    }
-
-    private void OpenSessionTabsView_TabCloseRequested(TabView sender, TabViewTabCloseRequestedEventArgs args)
-    {
-        if (args.Item is TerminalTabItem item && Guid.TryParse(item.SessionId, out Guid sessionId))
-        {
-            CloseTab(sessionId);
-        }
-    }
-
-    /// <summary>Entry points used by the title-bar controls in <see cref="MainWindow"/>.</summary>
-    public void ActivateTabFromTitleBar(string sessionIdText)
-    {
-        if (Guid.TryParse(sessionIdText, out Guid sessionId) && sessionId != _activeSessionId)
-        {
-            SwitchToTab(sessionId);
-        }
-    }
-
-    public void CloseTabFromTitleBar(string sessionIdText)
-    {
-        if (Guid.TryParse(sessionIdText, out Guid sessionId))
-        {
-            CloseTab(sessionId);
-        }
-    }
-
-    public void StartNewTabFromTitleBar()
-    {
-        ShowLauncherForNewTab();
-    }
-
     private void RefreshTabStrip()
     {
         List<TerminalTabItem> items = _sessionOrder
@@ -1532,8 +1438,6 @@ public sealed partial class MainPage : Page
             _activeSessionId.HasValue && i.SessionId == _activeSessionId.Value.ToString("N"));
         _suppressTabSelectionEvent = false;
 
-        (App.CurrentWindow as MainWindow)?.UpdateTitleBarTabs(items);
-
         TabStripBar.Visibility = items.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         UpdateActiveSessionChrome();
     }
@@ -1549,9 +1453,9 @@ public sealed partial class MainPage : Page
             ? session
             : null;
 
-        // The tab strip itself lives in the native title bar now, but this row still hosts
-        // the attach-file/session-settings/close-session actions for the active session.
-        ActiveContextRow.Visibility = activeSession != null ? Visibility.Visible : Visibility.Collapsed;
+        // Session switching lives entirely in the sidebar now; this is just the small
+        // corner menu (attach file/model/effort/close) for whichever session is active.
+        SessionActionsButton.Visibility = activeSession != null ? Visibility.Visible : Visibility.Collapsed;
         EmptyRightPane.Visibility = activeSession != null ? Visibility.Collapsed : Visibility.Visible;
 
         if (activeSession == null)
@@ -1581,6 +1485,8 @@ public sealed partial class MainPage : Page
 
     private void CloseActiveSessionButton_Click(object sender, RoutedEventArgs e)
     {
+        SessionActionsFlyout.Hide();
+
         if (_activeSessionId is Guid sessionId)
         {
             CloseTab(sessionId);
@@ -1628,30 +1534,6 @@ public sealed partial class MainPage : Page
     /// than a bound trigger, since WinUI3 data templates have no built-in way to react to a
     /// bound value change with a storyboard.
     /// </summary>
-    private void StatusDot_Loaded(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement { Tag: "pulse" } dot)
-        {
-            return;
-        }
-
-        var pulse = new DoubleAnimation
-        {
-            From = 1.0,
-            To = 0.3,
-            Duration = TimeSpan.FromSeconds(0.7),
-            AutoReverse = true,
-            RepeatBehavior = RepeatBehavior.Forever,
-            EasingFunction = new QuadraticEase()
-        };
-        Storyboard.SetTarget(pulse, dot);
-        Storyboard.SetTargetProperty(pulse, "Opacity");
-
-        var storyboard = new Storyboard();
-        storyboard.Children.Add(pulse);
-        storyboard.Begin();
-    }
-
     private void ReturnToLauncher()
     {
         _activeSessionId = null;
