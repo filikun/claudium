@@ -8,6 +8,12 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     Background="{StaticResource AppPageBrush}"
     mc:Ignorable="d">
+    <Page.KeyboardAccelerators>
+        <KeyboardAccelerator Key="Tab" Modifiers="Control" Invoked="NextSessionAccelerator_Invoked" />
+        <KeyboardAccelerator Key="Tab" Modifiers="Control,Shift" Invoked="PreviousSessionAccelerator_Invoked" />
+        <KeyboardAccelerator Key="T" Modifiers="Control,Shift" Invoked="NewSessionAccelerator_Invoked" />
+        <KeyboardAccelerator Key="W" Modifiers="Control,Shift" Invoked="CloseSessionAccelerator_Invoked" />
+    </Page.KeyboardAccelerators>
     <Page.Resources>
         <!-- SymbolIcon ignores a surrounding Button's FontSize, so size these directly. -->
         <Style x:Key="CompactActionSymbolIcon" TargetType="SymbolIcon">
@@ -78,8 +84,28 @@
                             </Button>
                         </Grid>
 
+                        <TextBox x:Name="ProjectSearchBox"
+                                 PlaceholderText="Sök projekt..."
+                                 Margin="16,0,14,10"
+                                 Padding="10,6"
+                                 FontSize="13"
+                                 Background="{StaticResource AppNeutralButtonBrush}"
+                                 Foreground="{StaticResource AppTextPrimaryBrush}"
+                                 BorderThickness="0"
+                                 CornerRadius="6"
+                                 Visibility="Collapsed"
+                                 TextChanged="ProjectSearchBox_TextChanged" />
+
                         <TextBlock x:Name="EmptyStateText"
                                    Text="Inga sparade kataloger ännu."
+                                   Foreground="{StaticResource AppTextTertiaryBrush}"
+                                   FontSize="13"
+                                   Margin="16,2,16,8"
+                                   TextWrapping="WrapWholeWords"
+                                   Visibility="Collapsed" />
+
+                        <TextBlock x:Name="NoSearchResultsText"
+                                   Text="Inga projekt matchar sökningen."
                                    Foreground="{StaticResource AppTextTertiaryBrush}"
                                    FontSize="13"
                                    Margin="16,2,16,8"

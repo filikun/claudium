@@ -9,6 +9,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.Web.WebView2.Core;
 using Windows.UI;
@@ -424,6 +425,32 @@ public sealed partial class MainPage : Page
             return;
         }
 
+        if (message.StartsWith("shortcut:", StringComparison.Ordinal))
+        {
+            // Mirrors the KeyboardAccelerators in MainPage.xaml — see the comment on
+            // NextSessionAccelerator_Invoked for why this duplication exists.
+            switch (message.Substring("shortcut:".Length))
+            {
+                case "nextSession":
+                    CycleActiveSession(1);
+                    break;
+                case "prevSession":
+                    CycleActiveSession(-1);
+                    break;
+                case "newSession":
+                    ShowLauncherForNewTab();
+                    break;
+                case "closeSession":
+                    if (_activeSessionId is Guid activeSessionId)
+                    {
+                        _ = RequestCloseTabAsync(activeSessionId);
+                    }
+                    break;
+            }
+
+            return;
+        }
+
         if (message.StartsWith("input:", StringComparison.Ordinal))
         {
             if (TrySplitSessionMessage(message, 6, out Guid sessionId, out string _) &&
@@ -577,6 +604,9 @@ public sealed partial class MainPage : Page
 
     // ----- Workspace list (launcher) -----
 
+    /// <summary>Only worth showing once the list is long enough that scanning it by eye gets tedious.</summary>
+    private const int ProjectSearchBoxVisibilityThreshold = 6;
+
     private void RefreshWorkspaceList()
     {
         string? activeWorkspaceId = _activeSessionId is Guid activeId && _sessions.TryGetValue(activeId, out TerminalSessionInfo? activeSession)
@@ -586,7 +616,13 @@ public sealed partial class MainPage : Page
         // Keep every project name readable instead of dimming inactive rows.
         Brush textBrush = (Brush)Application.Current.Resources["AppTextPrimaryBrush"];
 
-        List<WorkspaceListItem> items = _workspaces
+        string filter = ProjectSearchBox.Text.Trim();
+        IEnumerable<WorkspaceProfile> filtered = string.IsNullOrEmpty(filter)
+            ? _workspaces
+            : _workspaces.Where(w => w.Name.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+                                      w.Path.Contains(filter, StringComparison.OrdinalIgnoreCase));
+
+        List<WorkspaceListItem> items = filtered
             .OrderByDescending(w => w.IsFavorite)
             .ThenByDescending(w => w.LastUsedAt ?? w.CreatedAt)
             .Select(w =>
@@ -610,7 +646,14 @@ public sealed partial class MainPage : Page
             .ToList();
 
         WorkspaceListView.ItemsSource = items;
-        EmptyStateText.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        ProjectSearchBox.Visibility = _workspaces.Count >= ProjectSearchBoxVisibilityThreshold ? Visibility.Visible : Visibility.Collapsed;
+        EmptyStateText.Visibility = _workspaces.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        NoSearchResultsText.Visibility = _workspaces.Count > 0 && items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void ProjectSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        RefreshWorkspaceList();
     }
 
     private bool _updateCheckInProgress;
@@ -1185,6 +1228,22 @@ public sealed partial class MainPage : Page
         RefreshTabStrip();
     }
 
+    /// <summary>Ctrl+Tab / Ctrl+Shift+Tab: moves to the next/previous open session, wrapping around.</summary>
+    private void CycleActiveSession(int direction)
+    {
+        if (_sessionOrder.Count == 0)
+        {
+            return;
+        }
+
+        int currentIndex = _activeSessionId is Guid activeId ? _sessionOrder.IndexOf(activeId) : -1;
+        int nextIndex = currentIndex < 0
+            ? 0
+            : (currentIndex + direction + _sessionOrder.Count) % _sessionOrder.Count;
+
+        SwitchToTab(_sessionOrder[nextIndex]);
+    }
+
     private void CloseTab(Guid sessionId)
     {
         if (!_sessions.Remove(sessionId))
@@ -1214,13 +1273,87 @@ public sealed partial class MainPage : Page
         }
     }
 
-    private void CloseTabButton_Click(object sender, RoutedEventArgs e)
+    private async void CloseTabButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button button &&
             button.Tag is string sessionIdText &&
             Guid.TryParse(sessionIdText, out Guid sessionId))
         {
-            CloseTab(sessionId);
+            await RequestCloseTabAsync(sessionId);
+        }
+    }
+
+    /// <summary>
+    /// User-initiated close: asks for confirmation first if the session is still working or
+    /// waiting on Claude, so a stray click can't silently throw away in-progress work. The
+    /// "exit:" WebMessage path (the underlying process already ended on its own) calls
+    /// <see cref="CloseTab"/> directly instead — there's nothing left to confirm by then.
+    /// </summary>
+    private async System.Threading.Tasks.Task RequestCloseTabAsync(Guid sessionId)
+    {
+        if (!_sessions.TryGetValue(sessionId, out TerminalSessionInfo? session))
+        {
+            return;
+        }
+
+        if (session.Status is SessionActivityStatus.Working or SessionActivityStatus.Waiting)
+        {
+            string question = session.Status == SessionActivityStatus.Working
+                ? $"\"{session.Profile.Name}\" jobbar fortfarande. Stäng ändå?"
+                : $"\"{session.Profile.Name}\" väntar på svar. Stäng ändå?";
+
+            ContentDialog dialog = new()
+            {
+                XamlRoot = this.XamlRoot,
+                Title = "Stäng session",
+                Content = question,
+                PrimaryButtonText = "Stäng",
+                CloseButtonText = "Avbryt",
+                DefaultButton = ContentDialogButton.Close
+            };
+
+            ContentDialogResult result = await dialog.ShowAsync();
+            if (result != ContentDialogResult.Primary)
+            {
+                return;
+            }
+        }
+
+        CloseTab(sessionId);
+    }
+
+    /// <summary>
+    /// Keyboard shortcuts for switching/opening/closing sessions (see MainPage.xaml for the
+    /// KeyboardAccelerator declarations). These only fire while focus is somewhere in the
+    /// native XAML tree — the terminal is a WebView2, which owns its own input and never
+    /// routes key presses back through XAML accelerators, so the same shortcuts are
+    /// duplicated in terminal.html's attachCustomKeyEventHandler and forwarded here via the
+    /// "shortcut:" WebMessage (see CoreWebView2_WebMessageReceived) for when focus is there.
+    /// </summary>
+    private void NextSessionAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        CycleActiveSession(1);
+    }
+
+    private void PreviousSessionAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        CycleActiveSession(-1);
+    }
+
+    private void NewSessionAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        ShowLauncherForNewTab();
+    }
+
+    private void CloseSessionAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        if (_activeSessionId is Guid sessionId)
+        {
+            _ = RequestCloseTabAsync(sessionId);
         }
     }
 
@@ -1306,13 +1439,13 @@ public sealed partial class MainPage : Page
         UsageOverlay.Visibility = Visibility.Visible;
     }
 
-    private void CloseActiveSessionButton_Click(object sender, RoutedEventArgs e)
+    private async void CloseActiveSessionButton_Click(object sender, RoutedEventArgs e)
     {
         SessionActionsFlyout.Hide();
 
         if (_activeSessionId is Guid sessionId)
         {
-            CloseTab(sessionId);
+            await RequestCloseTabAsync(sessionId);
         }
     }
 

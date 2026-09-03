@@ -357,6 +357,37 @@
           return false;
         }
 
+        // Session switching/opening/closing shortcuts. The host owns the actual session
+        // list and does the work — this just forwards which one was pressed. Modeled on
+        // Windows Terminal's own Ctrl+Shift+T/W so they don't collide with readline's
+        // Ctrl+T (transpose) / Ctrl+W (delete word), which the running CLI expects to keep
+        // working normally. Native XAML controls get the same shortcuts via
+        // KeyboardAccelerators in MainPage.xaml — this handler only matters while the
+        // terminal itself has focus, since WebView2 never routes keys back through those.
+        if (event.ctrlKey && !event.shiftKey && key === 'tab') {
+          event.preventDefault();
+          send('shortcut:nextSession');
+          return false;
+        }
+
+        if (event.ctrlKey && event.shiftKey && key === 'tab') {
+          event.preventDefault();
+          send('shortcut:prevSession');
+          return false;
+        }
+
+        if (event.ctrlKey && event.shiftKey && key === 't') {
+          event.preventDefault();
+          send('shortcut:newSession');
+          return false;
+        }
+
+        if (event.ctrlKey && event.shiftKey && key === 'w') {
+          event.preventDefault();
+          send('shortcut:closeSession');
+          return false;
+        }
+
         return true;
       });
 
