@@ -321,6 +321,7 @@ public sealed partial class MainPage : Page
     {
         Loaded -= MainPage_Loaded;
         _ = RunUpdateCheckAsync(isAutomatic: true);
+        _ = Task.Run(CleanUpAttachmentsDirectory);
         await InitializeTerminalAsync();
 
         // First run: an empty sidebar with only a small "+" to discover isn't a great
@@ -548,6 +549,81 @@ public sealed partial class MainPage : Page
         }
 
         InsertPathIntoSession(sessionId, session, filePath);
+    }
+
+    private const int AttachmentMaxAgeDays = 14;
+    private const long AttachmentMaxTotalBytes = 1024L * 1024 * 1024;
+
+    /// <summary>
+    /// Pasted/dropped attachments accumulate in %TEMP%\Claudium\attachments with nothing
+    /// ever deleting them, so on each app start this prunes files older than
+    /// AttachmentMaxAgeDays and, if the folder is still oversized, trims the oldest
+    /// remaining files (LRU) until it's back under AttachmentMaxTotalBytes.
+    /// </summary>
+    private static void CleanUpAttachmentsDirectory()
+    {
+        try
+        {
+            string attachmentsDir = Path.Combine(Path.GetTempPath(), "Claudium", "attachments");
+            if (!Directory.Exists(attachmentsDir))
+            {
+                return;
+            }
+
+            DateTime cutoff = DateTime.UtcNow.AddDays(-AttachmentMaxAgeDays);
+            List<FileInfo> remaining = new();
+
+            foreach (string path in Directory.EnumerateFiles(attachmentsDir))
+            {
+                FileInfo info = new(path);
+                if (info.LastWriteTimeUtc < cutoff)
+                {
+                    TryDelete(info);
+                }
+                else
+                {
+                    remaining.Add(info);
+                }
+            }
+
+            long totalBytes = remaining.Sum(f => f.Length);
+            if (totalBytes <= AttachmentMaxTotalBytes)
+            {
+                return;
+            }
+
+            foreach (FileInfo info in remaining.OrderBy(f => f.LastWriteTimeUtc))
+            {
+                if (totalBytes <= AttachmentMaxTotalBytes)
+                {
+                    break;
+                }
+
+                long length = info.Length;
+                TryDelete(info);
+                totalBytes -= length;
+            }
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+
+        static void TryDelete(FileInfo info)
+        {
+            try
+            {
+                info.Delete();
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
     }
 
     private static string SanitizeFileName(string fileName)
