@@ -800,10 +800,24 @@
                 Background="{StaticResource AppSurfaceOverlayBrush}"
                 CornerRadius="8">
             <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <!-- Spinner while the check runs; swapped for a result glyph once it finishes. -->
+                <ProgressRing x:Name="AppUpdateBannerRing"
+                              IsActive="False"
+                              Width="14"
+                              Height="14"
+                              Visibility="Collapsed"
+                              Foreground="{StaticResource AppTextSecondaryBrush}" />
+                <FontIcon x:Name="AppUpdateBannerIcon"
+                          FontFamily="Segoe Fluent Icons"
+                          FontSize="13"
+                          Glyph="&#xE946;"
+                          Visibility="Collapsed"
+                          Foreground="{StaticResource AppTextSecondaryBrush}" />
                 <TextBlock x:Name="AppUpdateBannerText"
                            Foreground="{StaticResource AppTextPrimaryBrush}"
                            FontSize="13"
                            VerticalAlignment="Center" />
+                <!-- Only meaningful once an update is downloaded and armed. -->
                 <Button x:Name="AppUpdateRestartButton"
                         Content="Starta om nu"
                         Click="AppUpdateRestartButton_Click"
@@ -811,7 +825,8 @@
                         Foreground="{StaticResource AppTextPrimaryBrush}"
                         CornerRadius="6"
                         Padding="12,6"
-                        FontSize="12" />
+                        FontSize="12"
+                        Visibility="Collapsed" />
                 <Button x:Name="AppUpdateDismissButton"
                         Width="32"
                         Height="32"

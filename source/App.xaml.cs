@@ -45,6 +45,8 @@ public partial class App : Application
         CurrentWindow = _window;
         _window.Activate();
 
-        _ = Services.UpdateService.CheckForUpdatesAsync();
+        // The Claudium update check used to start here, but nothing on this side owns any
+        // UI to report it in. MainPage runs it from its Loaded handler instead, so the
+        // check can show a spinner and its outcome in the update banner.
     }
 }

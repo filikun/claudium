@@ -321,6 +321,11 @@ public sealed partial class MainPage : Page
     {
         Loaded -= MainPage_Loaded;
         _ = RunUpdateCheckAsync(isAutomatic: true);
+
+        // Claudium's own update check. It used to be kicked off from App.OnLaunched, which
+        // had no way to show it was running — driven from here it can report progress in
+        // the banner instead of only surfacing when an update happens to be found.
+        _ = RunAppUpdateCheckAsync(isAutomatic: true);
         _ = Task.Run(CleanUpAttachmentsDirectory);
         await InitializeTerminalAsync();
 
@@ -346,17 +351,27 @@ public sealed partial class MainPage : Page
     /// </summary>
     private void OnAppUpdateReady(string newVersion)
     {
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            AppUpdateBannerText.Text = $"Claudium {newVersion} har laddats ner och är redo. Starta om för att uppdatera.";
-            AppUpdateBanner.Visibility = Visibility.Visible;
+        DispatcherQueue.TryEnqueue(() => ShowAppUpdateReady(newVersion));
+    }
 
-            ShowAppUpdateStatus(
-                $"Claudium {newVersion} har laddats ner. Starta om för att installera.",
-                UpdateResultKind.Updated,
-                showSpinner: false);
-            AppUpdateRestartInlineButton.Visibility = Visibility.Visible;
-        });
+    /// <summary>
+    /// Presents an armed update on both surfaces. Called from the <see cref="Services.UpdateService.UpdateReady"/>
+    /// event and again from the check's own result — a check that short-circuits because the
+    /// update was already armed earlier doesn't re-raise the event, so this has to be idempotent.
+    /// </summary>
+    private void ShowAppUpdateReady(string newVersion)
+    {
+        ShowAppUpdateBanner(
+            $"Claudium {newVersion} har laddats ner och är redo. Starta om för att uppdatera.",
+            UpdateResultKind.Updated,
+            showSpinner: false);
+        AppUpdateRestartButton.Visibility = Visibility.Visible;
+
+        ShowAppUpdateStatus(
+            $"Claudium {newVersion} har laddats ner. Starta om för att installera.",
+            UpdateResultKind.Updated,
+            showSpinner: false);
+        AppUpdateRestartInlineButton.Visibility = Visibility.Visible;
     }
 
     private void AppUpdateRestartButton_Click(object sender, RoutedEventArgs e)
@@ -914,12 +929,22 @@ public sealed partial class MainPage : Page
 
     private bool _appUpdateCheckInProgress;
 
+    private void CheckForAppUpdatesButton_Click(object sender, RoutedEventArgs e)
+    {
+        _ = RunAppUpdateCheckAsync(isAutomatic: false);
+    }
+
     /// <summary>
-    /// The Settings button for Claudium's own updates. The same check also runs
-    /// automatically at startup (App.xaml.cs) — this is the on-demand path, and unlike
-    /// the startup one it reports every outcome, including "already up to date".
+    /// Checks for a newer Claudium build and reports progress and outcome. Runs once
+    /// automatically at startup and again whenever the Settings button is pressed.
+    ///
+    /// The automatic run drives the floating banner so the check is visible without
+    /// anyone having to open Settings; the manual run drives the Settings chip, where
+    /// the user is already looking. Either way, a found update is shown on both.
+    /// Outcomes with nothing to act on fade the banner out after a few seconds rather
+    /// than leaving it parked over the terminal.
     /// </summary>
-    private async void CheckForAppUpdatesButton_Click(object sender, RoutedEventArgs e)
+    private async System.Threading.Tasks.Task RunAppUpdateCheckAsync(bool isAutomatic)
     {
         if (_appUpdateCheckInProgress)
         {
@@ -928,7 +953,13 @@ public sealed partial class MainPage : Page
 
         _appUpdateCheckInProgress = true;
         CheckForAppUpdatesButton.IsEnabled = false;
-        ShowAppUpdateStatus("Söker efter Claudium-uppdateringar...", UpdateResultKind.Neutral, showSpinner: true);
+
+        const string searchingText = "Söker efter Claudium-uppdateringar...";
+        ShowAppUpdateStatus(searchingText, UpdateResultKind.Neutral, showSpinner: true);
+        if (isAutomatic)
+        {
+            ShowAppUpdateBanner(searchingText, UpdateResultKind.Neutral, showSpinner: true);
+        }
 
         Services.UpdateService.UpdateResult result = await Services.UpdateService.CheckForUpdatesAsync();
 
@@ -938,23 +969,29 @@ public sealed partial class MainPage : Page
         switch (result.Outcome)
         {
             case Services.UpdateService.UpdateOutcome.Ready:
-                ShowAppUpdateStatus(
-                    $"Claudium {result.Version} har laddats ner. Starta om för att installera.",
-                    UpdateResultKind.Updated,
-                    showSpinner: false);
-                AppUpdateRestartInlineButton.Visibility = Visibility.Visible;
+                ShowAppUpdateReady(result.Version ?? string.Empty);
                 break;
 
             case Services.UpdateService.UpdateOutcome.UpToDate:
                 ShowAppUpdateStatus("Claudium är redan den senaste versionen.", UpdateResultKind.Neutral, showSpinner: false);
+                if (isAutomatic)
+                {
+                    ShowAppUpdateBanner("Claudium är uppdaterad.", UpdateResultKind.Updated, showSpinner: false);
+                    _ = HideAppUpdateBannerAfterDelayAsync();
+                }
                 break;
 
             case Services.UpdateService.UpdateOutcome.NotInstalled:
-                // A dev/unpackaged run has no Velopack install folder to update into.
+                // A dev/unpackaged run has no Velopack install folder to update into. Worth
+                // saying when asked, but not worth a banner on every single dev launch.
                 ShowAppUpdateStatus(
                     "Den här kopian är inte installerad via installationsprogrammet — uppdateringar hanteras därför inte här.",
                     UpdateResultKind.Neutral,
                     showSpinner: false);
+                if (isAutomatic)
+                {
+                    HideAppUpdateBanner();
+                }
                 break;
 
             default:
@@ -962,7 +999,57 @@ public sealed partial class MainPage : Page
                     "Kunde inte söka efter uppdateringar: " + (result.Error ?? "okänt fel"),
                     UpdateResultKind.Error,
                     showSpinner: false);
+                if (isAutomatic)
+                {
+                    // Says the check ran and failed rather than silently doing nothing, but
+                    // gets out of the way — offline at launch is common and not actionable.
+                    ShowAppUpdateBanner("Kunde inte söka efter uppdateringar.", UpdateResultKind.Error, showSpinner: false);
+                    _ = HideAppUpdateBannerAfterDelayAsync();
+                }
                 break;
+        }
+    }
+
+    private void ShowAppUpdateBanner(string text, UpdateResultKind kind, bool showSpinner)
+    {
+        AppUpdateBannerText.Text = text;
+        AppUpdateBanner.Visibility = Visibility.Visible;
+
+        AppUpdateBannerRing.IsActive = showSpinner;
+        AppUpdateBannerRing.Visibility = showSpinner ? Visibility.Visible : Visibility.Collapsed;
+        AppUpdateBannerIcon.Visibility = showSpinner ? Visibility.Collapsed : Visibility.Visible;
+
+        Brush color = kind switch
+        {
+            UpdateResultKind.Updated => (Brush)Application.Current.Resources["AppSuccessBrush"],
+            UpdateResultKind.Error => new SolidColorBrush(Color.FromArgb(255, 0xE3, 0x8C, 0x8C)),
+            _ => new SolidColorBrush(Color.FromArgb(255, 0x90, 0x99, 0xBC))
+        };
+
+        AppUpdateBannerIcon.Foreground = color;
+        AppUpdateBannerIcon.Glyph = kind switch
+        {
+            UpdateResultKind.Updated => "\uE73E", // checkmark
+            UpdateResultKind.Error => "\uEA39", // error
+            _ => "\uE946" // info
+        };
+    }
+
+    private void HideAppUpdateBanner()
+    {
+        AppUpdateBanner.Visibility = Visibility.Collapsed;
+        AppUpdateBannerRing.IsActive = false;
+    }
+
+    private async System.Threading.Tasks.Task HideAppUpdateBannerAfterDelayAsync()
+    {
+        await System.Threading.Tasks.Task.Delay(TimeSpan.FromSeconds(5));
+
+        // An armed update must stay on screen until dismissed — it's the only prompt to
+        // restart, and it can land while this delay is still running.
+        if (!_appUpdateCheckInProgress && !Services.UpdateService.IsUpdateReady)
+        {
+            HideAppUpdateBanner();
         }
     }
 
