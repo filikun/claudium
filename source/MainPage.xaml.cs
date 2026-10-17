@@ -350,6 +350,12 @@ public sealed partial class MainPage : Page
         {
             AppUpdateBannerText.Text = $"Claudium {newVersion} har laddats ner och är redo. Starta om för att uppdatera.";
             AppUpdateBanner.Visibility = Visibility.Visible;
+
+            ShowAppUpdateStatus(
+                $"Claudium {newVersion} har laddats ner. Starta om för att installera.",
+                UpdateResultKind.Updated,
+                showSpinner: false);
+            AppUpdateRestartInlineButton.Visibility = Visibility.Visible;
         });
     }
 
@@ -904,6 +910,86 @@ public sealed partial class MainPage : Page
         {
             HideUpdateStatus();
         }
+    }
+
+    private bool _appUpdateCheckInProgress;
+
+    /// <summary>
+    /// The Settings button for Claudium's own updates. The same check also runs
+    /// automatically at startup (App.xaml.cs) — this is the on-demand path, and unlike
+    /// the startup one it reports every outcome, including "already up to date".
+    /// </summary>
+    private async void CheckForAppUpdatesButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_appUpdateCheckInProgress)
+        {
+            return;
+        }
+
+        _appUpdateCheckInProgress = true;
+        CheckForAppUpdatesButton.IsEnabled = false;
+        ShowAppUpdateStatus("Söker efter Claudium-uppdateringar...", UpdateResultKind.Neutral, showSpinner: true);
+
+        Services.UpdateService.UpdateResult result = await Services.UpdateService.CheckForUpdatesAsync();
+
+        _appUpdateCheckInProgress = false;
+        CheckForAppUpdatesButton.IsEnabled = true;
+
+        switch (result.Outcome)
+        {
+            case Services.UpdateService.UpdateOutcome.Ready:
+                ShowAppUpdateStatus(
+                    $"Claudium {result.Version} har laddats ner. Starta om för att installera.",
+                    UpdateResultKind.Updated,
+                    showSpinner: false);
+                AppUpdateRestartInlineButton.Visibility = Visibility.Visible;
+                break;
+
+            case Services.UpdateService.UpdateOutcome.UpToDate:
+                ShowAppUpdateStatus("Claudium är redan den senaste versionen.", UpdateResultKind.Neutral, showSpinner: false);
+                break;
+
+            case Services.UpdateService.UpdateOutcome.NotInstalled:
+                // A dev/unpackaged run has no Velopack install folder to update into.
+                ShowAppUpdateStatus(
+                    "Den här kopian är inte installerad via installationsprogrammet — uppdateringar hanteras därför inte här.",
+                    UpdateResultKind.Neutral,
+                    showSpinner: false);
+                break;
+
+            default:
+                ShowAppUpdateStatus(
+                    "Kunde inte söka efter uppdateringar: " + (result.Error ?? "okänt fel"),
+                    UpdateResultKind.Error,
+                    showSpinner: false);
+                break;
+        }
+    }
+
+    private void ShowAppUpdateStatus(string text, UpdateResultKind kind, bool showSpinner)
+    {
+        AppUpdateStatusChip.Visibility = Visibility.Visible;
+        AppUpdateStatusText.Text = text;
+
+        AppUpdateProgressRing.IsActive = showSpinner;
+        AppUpdateProgressRing.Visibility = showSpinner ? Visibility.Visible : Visibility.Collapsed;
+        AppUpdateStatusIcon.Visibility = showSpinner ? Visibility.Collapsed : Visibility.Visible;
+
+        Brush color = kind switch
+        {
+            UpdateResultKind.Updated => (Brush)Application.Current.Resources["AppSuccessBrush"],
+            UpdateResultKind.Error => new SolidColorBrush(Color.FromArgb(255, 0xE3, 0x8C, 0x8C)),
+            _ => new SolidColorBrush(Color.FromArgb(255, 0x90, 0x99, 0xBC))
+        };
+
+        AppUpdateStatusText.Foreground = color;
+        AppUpdateStatusIcon.Foreground = color;
+        AppUpdateStatusIcon.Glyph = kind switch
+        {
+            UpdateResultKind.Updated => "\uE73E", // checkmark
+            UpdateResultKind.Error => "\uEA39", // error
+            _ => "\uE946" // info
+        };
     }
 
     private void WorkspacePermissionModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)

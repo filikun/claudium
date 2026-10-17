@@ -412,6 +412,61 @@
                                                 FontSize="12"
                                                 HorizontalAlignment="Stretch" />
 
+                                        <Button x:Name="CheckForAppUpdatesButton"
+                                                Content="Sök efter Claudium-uppdateringar"
+                                                Click="CheckForAppUpdatesButton_Click"
+                                                Background="{StaticResource AppNeutralButtonBrush}"
+                                                Foreground="{StaticResource AppTextPrimaryBrush}"
+                                                CornerRadius="6"
+                                                Padding="12,6"
+                                                FontSize="12"
+                                                HorizontalAlignment="Stretch" />
+
+                                        <Border x:Name="AppUpdateStatusChip"
+                                                Background="{StaticResource AppPageBrush}"
+                                                CornerRadius="6"
+                                                Padding="10,6"
+                                                Visibility="Collapsed">
+                                            <Border.Transitions>
+                                                <TransitionCollection>
+                                                    <ContentThemeTransition />
+                                                </TransitionCollection>
+                                            </Border.Transitions>
+                                            <StackPanel Spacing="8">
+                                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                    <ProgressRing x:Name="AppUpdateProgressRing"
+                                                                  IsActive="False"
+                                                                  Width="13"
+                                                                  Height="13"
+                                                                  Foreground="{StaticResource AppTextSecondaryBrush}" />
+                                                    <FontIcon x:Name="AppUpdateStatusIcon"
+                                                              FontFamily="Segoe Fluent Icons"
+                                                              FontSize="12"
+                                                              Glyph="&#xE946;"
+                                                              Foreground="{StaticResource AppTextSecondaryBrush}"
+                                                              Visibility="Collapsed" />
+                                                    <TextBlock x:Name="AppUpdateStatusText"
+                                                               Foreground="{StaticResource AppTextSecondaryBrush}"
+                                                               FontSize="12"
+                                                               TextWrapping="WrapWholeWords"
+                                                               VerticalAlignment="Center" />
+                                                </StackPanel>
+
+                                                <!-- Only shown once an update is downloaded and armed; restarting is
+                                                     what actually applies it (see UpdateService.RestartNow). -->
+                                                <Button x:Name="AppUpdateRestartInlineButton"
+                                                        Content="Starta om och installera"
+                                                        Click="AppUpdateRestartButton_Click"
+                                                        Background="{StaticResource AppNeutralButtonBrush}"
+                                                        Foreground="{StaticResource AppTextPrimaryBrush}"
+                                                        CornerRadius="6"
+                                                        Padding="12,6"
+                                                        FontSize="12"
+                                                        HorizontalAlignment="Stretch"
+                                                        Visibility="Collapsed" />
+                                            </StackPanel>
+                                        </Border>
+
                                         <Border x:Name="UpdateStatusChip"
                                                 Background="{StaticResource AppPageBrush}"
                                                 CornerRadius="6"
