@@ -289,6 +289,11 @@
         fontSize: 16,
         lineHeight: 1.35,
         scrollback: 5000,
+        // xterm scrolls deltaY/cellHeight lines per event; with a ~21px cell a
+        // single wheel notch (100px) jumps nearly five lines, and a touchpad
+        // flick far more. Halving it keeps small movements controllable.
+        scrollSensitivity: 0.5,
+        fastScrollSensitivity: 3,
         convertEol: false,
         theme: resolvedTheme
       });
@@ -314,7 +319,11 @@
         // mouse reporting. We never let xterm itself see those sequences (it
         // would disable its own text-selection while "in mouse mode"), so we
         // track this ourselves and synthesize wheel reports by hand instead.
-        mouseTrackingEnabled: false
+        mouseTrackingEnabled: false,
+        // Leftover wheel pixels not yet turned into a synthetic wheel tick (see
+        // the wheel handler) — a touchpad emits a stream of small deltas, and
+        // rounding each one up to a full tick made tiny gestures scroll wildly.
+        wheelAccum: 0
       };
 
       term.onData((data) => {
@@ -405,8 +414,24 @@
         // "recall previous input" rather than "scroll".
         if (!term.buffer.active.hasScrollback) {
           if (entry.mouseTrackingEnabled) {
+            // Accumulate pixels and only emit a tick once a notch's worth has
+            // built up, carrying the remainder over. A direction change drops
+            // the carry so a reversal doesn't fire an immediate extra tick.
+            if ((entry.wheelAccum > 0) !== (event.deltaY > 0)) {
+              entry.wheelAccum = 0;
+            }
+            entry.wheelAccum += event.deltaY;
+
+            // One wheel notch is 100px; requiring two keeps a notch here worth
+            // about as much movement as the scrollback path above.
+            const PIXELS_PER_TICK = 200;
+            const ticks = Math.min(10, Math.trunc(Math.abs(entry.wheelAccum) / PIXELS_PER_TICK));
+            if (ticks === 0) {
+              return false;
+            }
+            entry.wheelAccum -= Math.sign(entry.wheelAccum) * ticks * PIXELS_PER_TICK;
+
             const button = event.deltaY < 0 ? 64 : 65;
-            const ticks = Math.max(1, Math.min(10, Math.round(Math.abs(event.deltaY) / 100)));
             let report = '';
             for (let i = 0; i < ticks; i++) {
               report += '\x1b[<' + button + ';1;1M';
