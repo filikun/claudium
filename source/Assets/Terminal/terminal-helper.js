@@ -247,6 +247,10 @@ function openSessionNow(sessionId, sessionRequest) {
     TERM: 'xterm-256color',
     COLORTERM: 'truecolor',
     FORCE_COLOR: '1',
+    // Claudium can be started from an existing Claude Code session, whose
+    // CLAUDE_CODE_CHILD_SESSION marker would otherwise leak into every tab and
+    // disable session persistence. Each tab is a top-level session of its own.
+    CLAUDE_CODE_FORCE_SESSION_PERSISTENCE: '1',
     CLAUDE_TAB_SESSION_ID: sessionId,
     CLAUDE_TAB_NOTIFY_PORT: String(notifyPort)
   });
